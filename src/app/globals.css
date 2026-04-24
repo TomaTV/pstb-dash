@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* ── Palette TV-safe (calibrée d'après Perplexity) ──
+     fond : #111111 recommandé → on garde #0F0F0F (diff invisible)
+     texte : off-white, pas pur blanc
+     sub   : #9A9A9A = ~6.5:1 sur #0F0F0F (>4.5 WCAG, confort TV à 3m)
+  */
+  --color-bg:         #0F0F0F;
+  --color-surface:    #161616;
+  --color-elevated:   #1E1E1E;
+  --color-border:     #2C2C2C;
+  --color-muted:      #3D3D3D;
+  --color-sub:        #9A9A9A;   /* ratio ≈6.5:1 — lisible à 3m */
+  --color-text:       #F2F2F2;   /* off-white, pas #FFF pur */
+
+  /* ── Accents PSTB ── */
+  --color-violet:     #651FFF;
+  --color-violet-dim: rgba(101, 31, 255, 0.12);
+  --color-red:        #FF1744;   /* rouge PSTB d'origine */
+  --color-red-dim:    rgba(255, 23, 68, 0.10);
+
+  /* ── Font ── */
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", monospace;
+}
+
+html, body {
+  background-color: #0F0F0F;
+  color: #F2F2F2;
+  font-family: var(--font-sans);
+  user-select: none;
+  overflow: hidden;
+  /* base 18px pour 1080p — 24px+ atteint via classes */
+  font-size: 18px;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #3d3d3d; border-radius: 4px; }

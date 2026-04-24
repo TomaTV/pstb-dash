@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(timeout 90 npx next build)",
+      "Bash(timeout 60 npx next build)",
+      "WebFetch(domain:www.pstb.fr)"
+    ]
+  }
+}
