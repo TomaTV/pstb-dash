@@ -1,5 +1,7 @@
 # PST&B Hub — Campus Dashboard
 
+![PST&B Dashboard](./public/banner.svg)
+
 Tableau de bord TV interactif et dynamique pour le campus de la **Paris School of Technology & Business**.
 
 ## Stack Technique
@@ -46,16 +48,77 @@ Le Dashboard intègre un algorithme de rotation asynchrone basé sur les **Best 
 - Mini-jeux interactifs (Wordle QR) : **22s**
 - Une option d'Override par widget est disponible dans l'admin.
 
-## Types de Widgets
-- `wordle` : Jeu multijoueur interactif persistant avec affichage sur TV et saisie via QR code mobile.
-- `spo` : Affiche "Soirée Portes Ouvertes" en haute définition recréant nativement un template Canva.
-- `word` : Vocabulaire tech/business aléatoire (SaaS, KPI, etc).
-- `gallery` : Diaporama photo avec intervalles configurables.
-- `poll` : Sondages interactifs en temps réel avec URL et QR code uniques.
-- `clock` : Horloge monumentale pour focus immersif.
-- `rss` : Flux d'actualités école ou tech.
-- `showcase` : Visuels premium pour newsletters, astuces, CV.
-- `iframe` : Affichage de documents (PDF) ou pages web externes.
+## Admin Panel — Cockpit
+
+Interface de gestion complète accessible sur `/admin` (authentification par session cookie) :
+
+- **Séquence drag & drop** : réordonner les widgets en glissé-déposé (dnd-kit).
+- **Modale d'ajout** catégorisée : Événementiel, Contenu & Tech, Interactivité, Live Data.
+- Toggle power, override du temps d'affichage, suppression avec confirmation par widget.
+- **Presets** : séquences prédéfinies (début/fin de semaine, vierge).
+- Configuration des satellites en mode Orbite.
+- Vue Analytics et déconnexion.
+
+## Widgets
+
+### Événementiel & Campus
+| Widget | Description |
+|---|---|
+| `next-event` | Prochain événement — compte à rebours ou liste libre avec range de dates |
+| `spo` | Soirée Portes Ouvertes — gradient PST&B + image hero, logo 8rem |
+| `gallery` | Diaporama photo local |
+| `clock` | Horloge monumentale immersive |
+| `transport` | Info trafic RATP live — lignes RER/Métro/Tram, panel perturbations |
+| `student` | BDE — contenus et infos étudiantes |
+
+### Contenu & Tech
+| Widget | Description |
+|---|---|
+| `word` | Mot du jour (vocabulaire tech/business) |
+| `business` | Stat ou KPI marquant |
+| `quote` | Citation |
+| `rss` | Flux d'actualités école ou tech |
+| `weather` | Météo live |
+| `social` | Post social |
+| `jobs` | Offres d'emploi live |
+
+### Interactivité & Médias
+| Widget | Description |
+|---|---|
+| `poll` | Sondages interactifs temps réel (vote via `/vote`) |
+| `puzzle` | Énigme du jour |
+| `wordle` | Jeu Wordle multijoueur persistant (saisie via `/jeu`) |
+| `showcase` | Visuels premium (Webcam RGPD, Newsletters) |
+| `iframe` | Document PDF ou page web externe |
+
+### Live Data & Hub
+| Widget | Description |
+|---|---|
+| `hub` | Hub PST&B — liens vers tous les services internes |
+| `countdown` | Compte à rebours paramétrable |
+| `crypto` | Cours crypto en temps réel |
+| `github-trending` | Repos GitHub tendance du jour |
+
+## API Routes
+
+| Route | Description |
+|---|---|
+| `/api/auth/login` `/api/auth/logout` | Session cookie HttpOnly |
+| `/api/dashboard` | CRUD `data/db.json` |
+| `/api/stream` | SSE — updates temps réel du dashboard |
+| `/api/transport` | Proxy data.ratp.fr (perturbations live) |
+| `/api/crypto` | Cours crypto live |
+| `/api/github-trending` | GitHub trending scraper |
+| `/api/jobs` | Offres d'emploi live |
+| `/api/wordle/guess` | Persistence état Wordle |
+| `/api/poll` | Votes sondages |
+| `/api/submit` | Soumissions formulaires |
+
+## Pages Spéciales
+
+- `/etudiants` : portail BDE (JobsWidget mobile-friendly).
+- `/jeu` : interface Wordle mobile — les étudiants saisissent leurs lettres depuis leur téléphone.
+- `/vote` : interface de vote mobile pour les sondages affichés sur TV.
 
 ## Identité Visuelle PST&B
 
