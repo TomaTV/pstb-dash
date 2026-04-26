@@ -1,0 +1,89 @@
+{
+  "settings": {
+    "viewMode": "scene",
+    "orbitSlots": {
+      "satellites": [
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    "autoRotate": true,
+    "ticker": {
+      "enabled": true,
+      "position": "bottom",
+      "messages": [
+        "QDQ"
+      ],
+      "accent": "violet",
+      "speed": 15
+    },
+    "breaking": {
+      "title": "BREAKING NEWS",
+      "message": "COURS STOP",
+      "active": false,
+      "accent": "red"
+    }
+  },
+  "widgets": [
+    {
+      "id": "w-debut-semaine-1777166910744-0",
+      "type": "weather",
+      "title": "Météo de la semaine",
+      "focusable": false,
+      "data": {
+        "city": "Paris",
+        "lat": 48.8566,
+        "lon": 2.3522,
+        "multiCampus": true
+      }
+    },
+    {
+      "id": "hub-1777193891526",
+      "type": "hub",
+      "title": "Hub PST&B",
+      "focusable": false,
+      "data": {
+        "campus": "Campus Paris",
+        "lat": 48.8566,
+        "lon": 2.3522
+      }
+    },
+    {
+      "id": "countdown-1777193910016",
+      "type": "countdown",
+      "title": "Compte à rebours",
+      "focusable": false,
+      "data": {
+        "title": "Hackathon PST&B",
+        "subtitle": "48h de code, business et pitch sur le campus",
+        "date": "2026-05-22T09:00:00",
+        "accent": "red"
+      }
+    },
+    {
+      "id": "crypto-1777193924968",
+      "type": "crypto",
+      "title": "Crypto Markets",
+      "focusable": false,
+      "data": {}
+    },
+    {
+      "id": "github-trending-1777193951552",
+      "type": "github-trending",
+      "title": "GitHub Trending",
+      "focusable": true,
+      "data": {}
+    },
+    {
+      "id": "transport-1777197957176",
+      "type": "transport",
+      "title": "Info trafic",
+      "focusable": false,
+      "data": {
+        "campus": "PST&B · Paris 11e"
+      }
+    }
+  ]
+}

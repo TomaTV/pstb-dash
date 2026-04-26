@@ -134,3 +134,9 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# PST&B Dashboard
+data/db.sqlite
+data/db.sqlite-wal
+data/db.sqlite-shm
+public/uploads/

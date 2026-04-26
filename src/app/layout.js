@@ -16,6 +16,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="fr" className={`${inter.variable} h-full`}>
+      <head>
+        <meta name="apple-mobile-web-app-title" content="Dash by pst&b" />
+      </head>
       <body className="bg-bg text-text antialiased">
         <DashboardProvider>{children}</DashboardProvider>
       </body>

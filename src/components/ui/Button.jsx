@@ -3,7 +3,7 @@
 import { forwardRef } from "react";
 
 const VARIANTS = {
-  primary:   "bg-violet text-white hover:bg-violet/90",
+  primary:   "bg-[#FF1744] text-white hover:bg-[#E0143C] shadow-lg shadow-[#FF1744]/20",
   secondary: "bg-elevated text-text border border-border hover:border-violet/40",
   ghost:     "text-sub hover:text-text hover:bg-elevated",
   danger:    "bg-pink text-white hover:bg-pink/90",

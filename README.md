@@ -1,99 +1,65 @@
-# OrbitDash — PST&B
+# PST&B Hub — Campus Dashboard
 
-Tableau de bord dynamique pour les écrans du campus de la **Paris School of Technology & Business**.
+Tableau de bord TV interactif et dynamique pour le campus de la **Paris School of Technology & Business**.
 
-Grille de widgets interactifs autour d'une **Focus Zone** centrale qui accueille, via une animation `layoutId` Framer Motion, le widget cliqué.
-
-## Stack
+## Stack Technique
 
 - **Next.js 16** (App Router, Turbopack)
 - **React 19**
 - **Tailwind CSS v4** (`@theme inline` + tokens PST&B)
-- **Framer Motion** (transitions grille → focus → fullscreen)
-- **Lucide React** (icônes)
+- **Framer Motion** (transitions blur/opacity fluides)
+- **Lucide React** (icônes vectorielles)
 - État global via **Context API** (`DashboardContext`)
-- Persistance via `localStorage` (remplaçable par Supabase / Firebase / JSON-Server)
+- Persistance serveur locale via `data/db.json` (API route `/api/dashboard`)
 
 ## Scripts
 
 ```bash
-npm run dev      # dev server
-npm run build    # production build
-npm run start    # start prod server
+npm run dev      # Serveur de développement (http://localhost:3000)
+npm run build    # Build production
+npm run start    # Démarrage production
 ```
 
-## Architecture
+## Architecture des Vues
 
-```
-src/
-├─ app/
-│  ├─ layout.js             # Root layout + <DashboardProvider>
-│  ├─ page.js               # Route "/" → <Dashboard />
-│  ├─ admin/page.js         # Route "/admin" → <AdminPanel />
-│  └─ globals.css           # Tailwind v4 + tokens PST&B + glassmorphism
-│
-├─ context/
-│  └─ DashboardContext.jsx  # widgets, focusedId, fullscreenId, CRUD + swap
-│
-├─ lib/
-│  └─ widgets.js            # registre + données seed des widgets
-│
-└─ components/
-   ├─ Dashboard.jsx         # grille CSS + Focus Zone + fullscreen overlay
-   ├─ AdminPanel.jsx        # édition live des widgets
-   ├─ WidgetWrapper.jsx     # composant générique (mode: grid | focus | fullscreen)
-   ├─ ui/                   # Button, Card, Input, Textarea
-   └─ widgets/
-      ├─ NextEventWidget.jsx
-      ├─ PollWidget.jsx
-      ├─ ClockWidget.jsx
-      ├─ RssWidget.jsx
-      └─ index.js           # registre { type → Component }
-```
+Le Dashboard propose deux modes de rendu dynamique (configurables dans l'Admin) :
 
-### Contrat d'un widget
+### 1. Mode SCÈNE (Plein écran)
+- Affichage 100% fullscreen (edge-to-edge).
+- **Logo PST&B** ancré en bas à gauche.
+- **Horloge** ancrée en bas à droite.
+- Transitions de fondu fluides entre chaque widget.
 
-```js
-{
-  id: string,                 // identifiant unique
-  type: "next-event"|"poll"|"clock"|"rss",
-  title: string,
-  focusable: boolean,         // éligible à la Focus Zone ?
-  data: { ... }               // payload édité côté /admin
-}
-```
+### 2. Mode ORBITE (Dashboard)
+- Layout futuriste avec 1 widget central actif (énorme) et 4 slots "satellites" autour.
+- Le widget tourne parmi les 4 satellites.
+- **Logo PST&B** se déplace automatiquement en haut à gauche (et réduit sa taille).
+- **Horloge** se déplace automatiquement en haut à droite.
+- Gradients de lumière colorée en fond (`ring-violet`, `shadow-[0_0_80px...]`).
 
-Chaque composant widget accepte `{ widget, mode }` avec `mode ∈ {"grid","focus","fullscreen"}` et doit savoir se rendre dans les trois formats.
+## Gestion du temps d'affichage
 
-### Flux de données
+Le Dashboard intègre un algorithme de rotation asynchrone basé sur les **Best Practices du Digital Signage** :
+- Contenus passifs courts (Citations, Mots) : **6s**
+- Contenus passifs denses (Affiches, News) : **10s**
+- Contenus interactifs (Sondages QR) : **18s**
+- Mini-jeux interactifs (Wordle QR) : **22s**
+- Une option d'Override par widget est disponible dans l'admin.
 
-```
-/admin (édition)  ──▶  DashboardContext  ──▶  localStorage
-                             │
-                             └────▶  Dashboard + widgets (live re-render)
-```
+## Types de Widgets
+- `wordle` : Jeu multijoueur interactif persistant avec affichage sur TV et saisie via QR code mobile.
+- `spo` : Affiche "Soirée Portes Ouvertes" en haute définition recréant nativement un template Canva.
+- `word` : Vocabulaire tech/business aléatoire (SaaS, KPI, etc).
+- `gallery` : Diaporama photo avec intervalles configurables.
+- `poll` : Sondages interactifs en temps réel avec URL et QR code uniques.
+- `clock` : Horloge monumentale pour focus immersif.
+- `rss` : Flux d'actualités école ou tech.
+- `showcase` : Visuels premium pour newsletters, astuces, CV.
+- `iframe` : Affichage de documents (PDF) ou pages web externes.
 
-## Identité visuelle
+## Identité Visuelle PST&B
 
-| Token            | Valeur    | Usage                       |
-|------------------|-----------|-----------------------------|
-| `pstb-navy`      | `#002349` | Business / profondeur       |
-| `pstb-navy-deep` | `#001529` | Fond dégradé haut           |
-| `pstb-navy-black`| `#000814` | Fond dégradé bas            |
-| `pstb-cyan`      | `#00e5ff` | Tech / accents / hover      |
-| `pstb-violet`    | `#6a2bff` | Dégradés accent             |
-| `pstb-magenta`   | `#ff2d87` | Actions destructives / CTA  |
-
-Typo generous (`text-2xl`+), espacements larges : le dashboard se regarde **à 3 mètres**, pas à 30 cm.
-
-## Roadmap
-
-- [ ] Mode **Admin Layout** (drag & swap — `swapWidgets` déjà exposé dans le context)
-- [ ] **Theme Engine** (dark/light + densité compact/spaced)
-- [ ] **Real-time** via Supabase Realtime
-- [ ] **Widget Factory** (ajout dynamique via l'UI)
-- [ ] Backend persistant (remplacer localStorage)
-
-## Équipe
-
-- _À compléter_ — nom/prénom + pseudo GitHub + contributions.
+- Dark mode premium profond (`bg-bg`: `#0a0a0a` / `#050505`).
+- Accents Violet (`#651FFF`), Rouge (`#FF1744`), et Emerald pour les validations.
+- Typographie **Inter** structurée pour être lisible à plus de 3 mètres de distance.
+- Glassmorphism subtil (fonds `white/[0.015]`, blur) pour donner de la profondeur sans surcharger.

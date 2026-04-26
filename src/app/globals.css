@@ -17,7 +17,7 @@
   /* ── Accents PSTB ── */
   --color-violet:     #651FFF;
   --color-violet-dim: rgba(101, 31, 255, 0.12);
-  --color-red:        #FF1744;   /* rouge PSTB d'origine */
+  --color-red:        #E30613;   /* rouge PSTB officiel */
   --color-red-dim:    rgba(255, 23, 68, 0.10);
 
   /* ── Font ── */
@@ -30,11 +30,27 @@ html, body {
   color: #F2F2F2;
   font-family: var(--font-sans);
   user-select: none;
-  overflow: hidden;
   /* base 18px pour 1080p — 24px+ atteint via classes */
   font-size: 18px;
 }
 
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #3d3d3d; border-radius: 4px; }
+/* Dashboard fullscreen TV : pas de scroll. L'admin override avec data-admin sur body. */
+body:not([data-admin]) {
+  overflow: hidden;
+}
+
+/* Live ticker scroll animation */
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* Custom scrollbar class for explicit usage */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #3d3d3d transparent;
+}
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #3d3d3d; border-radius: 6px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }

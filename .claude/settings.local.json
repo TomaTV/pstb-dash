@@ -4,7 +4,12 @@
       "Bash(npm install *)",
       "Bash(timeout 90 npx next build)",
       "Bash(timeout 60 npx next build)",
-      "WebFetch(domain:www.pstb.fr)"
+      "WebFetch(domain:www.pstb.fr)",
+      "Bash(python3 \"C:\\\\Users\\\\devul\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\61b91927-f8a4-4478-869b-0e3ac17aa0f6\\\\355d0f0c-a847-4540-ac7b-e2117709e2ec\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"campus dashboard TV display dark premium education events\" --design-system -p \"PST&B Hub\")",
+      "Bash(python \"C:\\\\Users\\\\devul\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\61b91927-f8a4-4478-869b-0e3ac17aa0f6\\\\355d0f0c-a847-4540-ac7b-e2117709e2ec\\\\skills\\\\ui-ux-pro-max\\\\scripts\\\\search.py\" \"campus dashboard TV display dark premium education events\" --design-system -p \"PST&B Hub\")",
+      "Bash(npx next *)",
+      "WebFetch(domain:pstb.fr)",
+      "Bash(node -e \"const m = require\\('lucide-react'\\); console.log\\('Linkedin?', typeof m.Linkedin, 'Instagram?', typeof m.Instagram, 'Brain?', typeof m.Brain, 'PartyPopper?', typeof m.PartyPopper, 'Images?', typeof m.Images, 'TrendingDown?', typeof m.TrendingDown, 'CloudFog?', typeof m.CloudFog, 'CloudDrizzle?', typeof m.CloudDrizzle\\); console.log\\('version:', require\\('lucide-react/package.json'\\).version\\)\")"
     ]
   }
 }
