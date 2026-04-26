@@ -22,6 +22,10 @@ import GithubTrendingWidget from "./GithubTrendingWidget";
 import HubWidget from "./HubWidget";
 import NetworkStatusWidget from "./NetworkStatusWidget";
 import CampusMapWidget from "./CampusMapWidget";
+import SpoVideoWidget from "./SpoVideoWidget";
+import VideoWidget from "./VideoWidget";
+
+
 
 export const WIDGET_COMPONENTS = {
   "next-event": NextEventWidget,
@@ -48,6 +52,10 @@ export const WIDGET_COMPONENTS = {
   hub: HubWidget,
   "network-status": NetworkStatusWidget,
   "campus-map": CampusMapWidget,
+  "spo-video": SpoVideoWidget,
+  video: VideoWidget,
+
+
 };
 
 export function renderWidget(widget, mode) {

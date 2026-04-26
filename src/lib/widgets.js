@@ -204,7 +204,18 @@ export const PRESETS = {
     ],
     settings: { viewMode: "scene", orbitSlots: { satellites: [[], [], [], []] } }
   },
+  "spo-live": {
+    label: "📢 Live SPO (Vidéo)",
+    widgets: [
+      { id: `w-spo-v-${Date.now()}`, type: "spo-video", title: "Live SPO", focusable: true, data: { title: "DÉCOUVRE TON FUTUR CAMPUS", date: new Date(Date.now() + 86400000 * 7).toISOString(), location: "Campus PST&B · Paris", cta: "S'inscrire", videoUrl: "", qrUrl: "https://www.pstb.fr/demande-rdv" } },
+      { id: `w-hub-${Date.now()}`, type: "hub", title: "Hub PST&B", focusable: true, data: { campus: "Campus Paris" } },
+      { id: `w-gallery-${Date.now()}`, type: "gallery", title: "Le Campus en images", focusable: true, data: { title: "Vie Étudiante", interval: 4, images: [] } },
+      { id: `w-transport-${Date.now()}`, type: "transport", title: "Info Trafic", focusable: true, data: { campus: "PST&B · Paris 11e" } },
+    ],
+    settings: { viewMode: "scene", orbitSlots: { satellites: [[], [], [], []] } }
+  },
   "bde-matin": {
+
     label: "☀️ Matin BDE",
     widgets: [
       { id: `w-hub-${Date.now()}`, type: "hub", title: "Hub PST&B", focusable: true, data: { campus: "Campus Paris", lat: 48.8566, lon: 2.3522 } },
@@ -247,7 +258,11 @@ export const WIDGET_TYPES = [
   { type: "hub", label: "Maintenant à PST&B (hub)" },
   { type: "network-status", label: "État réseau campus" },
   { type: "campus-map", label: "Carte / Salles Libres" },
+  { type: "spo-video", label: "SPO Vidéo (Cinématique)" },
+  { type: "video", label: "Vidéo Plein Écran" },
 ];
+
+
 
 export const NEW_WIDGET_DEFAULTS = {
   weather: { city: "Paris", lat: 48.8566, lon: 2.3522 },
@@ -345,4 +360,58 @@ export const NEW_WIDGET_DEFAULTS = {
     },
   },
   "network-status": {},
+  "spo-video": {
+    title: "SOIRÉE PORTES OUVERTES",
+    date: new Date(Date.now() + 86400000 * 14).toISOString(),
+    location: "Campus PST&B · Paris",
+    cta: "S'inscrire",
+    videoUrl: "",
+    qrUrl: "",
+  },
+  video: {
+    videoUrl: "",
+    objectFit: "cover"
+  }
 };
+
+
+
+/**
+ * Transforms common video hosting links (Google Drive, Dropbox) into direct video stream URLs.
+ */
+export function transformVideoUrl(url) {
+  if (!url) return { url: "", isEmbed: false };
+  if (url.startsWith("data:")) return { url, isEmbed: false };
+
+  // Google Drive
+  const driveMatch = url.match(/\/(?:file\/d\/|open\?id=)([\w-]+)/);
+  if (driveMatch && driveMatch[1]) {
+    return { 
+      url: `https://drive.google.com/file/d/${driveMatch[1]}/preview`, 
+      isEmbed: true,
+      params: "autoplay=1&mute=1&loop=1&controls=0"
+    };
+  }
+
+  // YouTube
+  const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+  if (ytMatch && ytMatch[1]) {
+    const id = ytMatch[1];
+    return {
+      url: `https://www.youtube.com/embed/${id}`,
+      isEmbed: true,
+      params: `autoplay=1&mute=1&loop=1&playlist=${id}&controls=0&modestbranding=1&rel=0`
+    };
+  }
+
+  // Dropbox
+  if (url.includes("dropbox.com") && url.endsWith("?dl=0")) {
+    return { url: url.replace("?dl=0", "?raw=1"), isEmbed: false };
+  }
+
+  return { url, isEmbed: false };
+}
+
+
+
+

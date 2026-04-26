@@ -51,7 +51,11 @@ const TYPE_META = {
   hub: { label: "Hub PST&B", Icon: Sparkles, color: "text-violet" },
   "network-status": { label: "État réseau", Icon: Wifi, color: "text-emerald-400" },
   "campus-map": { label: "Salles Libres", Icon: LayoutGrid, color: "text-emerald-400" },
+  "spo-video": { label: "SPO Vidéo", Icon: Film, color: "text-violet" },
+  video: { label: "Vidéo seule", Icon: Film, color: "text-blue-400" },
 };
+
+
 
 const ADD_CATEGORIES = [
   {
@@ -64,7 +68,9 @@ const ADD_CATEGORIES = [
       { type: "transport", label: "Info trafic", data: () => NEW_WIDGET_DEFAULTS.transport },
       { type: "student", label: "BDE / Étudiants", data: () => NEW_WIDGET_DEFAULTS.student },
       { type: "campus-map", label: "Carte / Salles", data: () => ({}) },
+      { type: "spo-video", label: "SPO Vidéo", data: () => NEW_WIDGET_DEFAULTS["spo-video"] },
     ]
+
   },
   {
     name: "Contenu & Tech",
@@ -86,7 +92,9 @@ const ADD_CATEGORIES = [
       { type: "wordle", label: "Jeu Wordle", data: () => NEW_WIDGET_DEFAULTS.wordle },
       { type: "showcase", label: "Visuel", data: () => ({ variant: "webcam" }) },
       { type: "iframe", label: "Document", data: () => ({ url: "" }) },
+      { type: "video", label: "Vidéo Plein Écran", data: () => NEW_WIDGET_DEFAULTS.video },
     ]
+
   },
   {
     name: "Live Data & Hub",
@@ -1002,12 +1010,13 @@ function GlobalSettingsPanel({ settings, widgets, addWidget, onChange, onReset, 
       key: "jpo", label: "Journée Portes Ouvertes (JPO)", Icon: UserPlus, color: "text-rose-400",
       desc: "Idéal pour les visiteurs : Galeries, Vidéos, Chiffres & Météo",
       dayTypes: {
-        1: ["hub", "gallery", "iframe", "showcase", "quote", "weather"],
-        2: ["hub", "gallery", "iframe", "business", "quote", "weather"],
-        3: ["hub", "gallery", "iframe", "showcase", "quote", "weather"],
-        4: ["hub", "gallery", "iframe", "business", "quote", "weather"],
-        5: ["hub", "gallery", "iframe", "showcase", "quote", "weather"],
-        6: ["hub", "gallery", "iframe", "showcase", "quote", "weather"], // Activé le samedi pour la JPO
+        1: ["hub", "gallery", "spo-video", "iframe", "showcase", "quote", "weather"],
+        2: ["hub", "gallery", "spo-video", "iframe", "business", "quote", "weather"],
+        3: ["hub", "gallery", "spo-video", "iframe", "showcase", "quote", "weather"],
+        4: ["hub", "gallery", "spo-video", "iframe", "business", "quote", "weather"],
+        5: ["hub", "gallery", "spo-video", "iframe", "showcase", "quote", "weather"],
+        6: ["hub", "gallery", "spo-video", "iframe", "showcase", "quote", "weather"], // Activé le samedi pour la JPO
+
       },
       timeRules: [],
     },
@@ -1576,6 +1585,15 @@ function GlobalSettingsPanel({ settings, widgets, addWidget, onChange, onReset, 
           </button>
         </div>
         <div className="flex gap-2 mt-2">
+          <button onClick={() => onLoadPreset("spo-live", "Live SPO (Vidéo)")}
+            className="flex-1 flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-violet/20 hover:bg-violet/10 hover:border-violet/40 transition-colors group">
+            <Film size={15} className="text-violet shrink-0" strokeWidth={1.8} />
+            <div className="text-left min-w-0">
+              <div className="text-xs font-bold text-white truncate">Live SPO</div>
+              <div className="text-[10px] text-white/40 truncate">Vidéo cinématique</div>
+            </div>
+          </button>
+
           <button onClick={() => onLoadPreset("monitoring-reseau", "Monitoring réseau")}
             className="flex-1 flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/10 hover:bg-violet/10 hover:border-violet/40 transition-colors group">
             <Activity size={15} className="text-emerald-400 shrink-0" strokeWidth={1.8} />
@@ -1976,13 +1994,14 @@ function WidgetDataEditor({ widget, onChange }) {
     <>
       <Input label="URL du document" value={data.url ?? ""} onChange={e => onChange({ url: e.target.value })} placeholder="https://..." />
       <div>
-        <div className="text-[11px] font-medium uppercase tracking-widest text-white/55 mb-2">Ou téléverser un fichier</div>
-        <FileToDataUrlInput accept="application/pdf,image/*"
+        <div className="text-[11px] font-medium uppercase tracking-widest text-white/55 mb-2">Ou téléverser un fichier (PDF, Image, Vidéo)</div>
+        <FileToDataUrlInput accept="application/pdf,image/*,video/mp4,video/quicktime"
           hasValue={!!data.url}
           onLoad={url => onChange({ url })}
           onClear={() => onChange({ url: "" })} />
       </div>
     </>
+
   );
 
   if (type === "word") {
@@ -2273,6 +2292,81 @@ function WidgetDataEditor({ widget, onChange }) {
     </>
   );
 
+  if (type === "spo-video") return (
+    <>
+      <Input label="Titre" value={data.title ?? ""} onChange={e => onChange({ title: e.target.value })} />
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Date de l'évènement" type="date" value={data.date ? data.date.split("T")[0] : ""} onChange={e => onChange({ date: e.target.value })} />
+        <Input label="Lieu" value={data.location ?? ""} onChange={e => onChange({ location: e.target.value })} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="CTA bouton QR" value={data.cta ?? ""} onChange={e => onChange({ cta: e.target.value })} placeholder="s'inscrire" />
+        <Input label="URL d'inscription (QR code)" value={data.qrUrl ?? ""} onChange={e => onChange({ qrUrl: e.target.value })} placeholder="https://..." />
+      </div>
+      <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.015] px-4 py-3 cursor-pointer hover:border-white/20 transition-colors">
+        <input type="checkbox" checked={data.hideContent ?? false}
+          onChange={e => onChange({ hideContent: e.target.checked })}
+          className="accent-violet w-4 h-4 rounded" />
+        <div>
+          <div className="text-sm text-white font-semibold">Masquer les textes (Mode vidéo seule)</div>
+          <div className="text-[11px] text-white/45">Affiche uniquement la vidéo en plein écran sans les infos SPO.</div>
+        </div>
+      </label>
+      <div>
+        <div className="text-[11px] font-medium uppercase tracking-widest text-white/55 mb-1.5">Lien de la vidéo (Drive, Dropbox, Direct...)</div>
+        <Input 
+          value={data.videoUrl ?? ""} 
+          onChange={e => onChange({ videoUrl: e.target.value })} 
+          placeholder="https://drive.google.com/file/d/.../view"
+        />
+        <div className="mt-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <div className="text-[10px] text-amber-400 font-bold uppercase mb-1 flex items-center gap-1.5">
+            <AlertTriangle size={10} /> Attention Google Drive
+          </div>
+          <p className="text-[10px] text-white/50 leading-relaxed">
+            Google Drive bloque souvent la lecture directe des fichiers volumineux (&gt;100 Mo) avec un message d'erreur. Si la vidéo reste noire, utilisez un lien direct ou réduisez la taille du fichier.
+          </p>
+        </div>
+
+        
+        <div className="text-[11px] font-medium uppercase tracking-widest text-white/55 mb-1.5">Ou téléverser (max 5-10 Mo conseillé)</div>
+        <FileToDataUrlInput accept="video/mp4,video/quicktime,video/webm"
+          hasValue={!!data.videoUrl && data.videoUrl.startsWith("data:")}
+          onLoad={url => onChange({ videoUrl: url })}
+          onClear={() => onChange({ videoUrl: "" })} />
+        {data.videoUrl && (
+
+          <div className="mt-3 relative rounded-xl overflow-hidden border border-white/10 aspect-video">
+            <video src={data.videoUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+          </div>
+        )}
+      </div>
+    </>
+  );
+
+  if (type === "video") return (
+    <>
+      <div>
+        <div className="text-[11px] font-medium uppercase tracking-widest text-white/55 mb-1.5">Lien de la vidéo (Direct / Drive / Dropbox)</div>
+        <Input 
+          value={data.videoUrl ?? ""} 
+          onChange={e => onChange({ videoUrl: e.target.value })} 
+          placeholder="https://..."
+        />
+      </div>
+      <SelectField label="Remplissage" value={data.objectFit ?? "cover"} onChange={v => onChange({ objectFit: v })}
+        options={[{ value: "cover", label: "Remplir (Cover)" }, { value: "contain", label: "Entier (Contain)" }]} />
+      <div>
+        <div className="text-[11px] font-medium uppercase tracking-widest text-white/55 mb-1.5">Ou téléverser un fichier</div>
+        <FileToDataUrlInput accept="video/mp4,video/quicktime,video/webm"
+          hasValue={!!data.videoUrl && data.videoUrl.startsWith("data:")}
+          onLoad={url => onChange({ videoUrl: url })}
+          onClear={() => onChange({ videoUrl: "" })} />
+      </div>
+    </>
+  );
+
   if (type === "network-status") return (
     <div className="space-y-2">
       <p className="text-sm text-white/45">
@@ -2285,6 +2379,7 @@ function WidgetDataEditor({ widget, onChange }) {
   );
 
   return <p className="text-sm text-white/45">Pas d'éditeur pour ce type.</p>;
+
 }
 
 /* ════════════════════════════════════════════
