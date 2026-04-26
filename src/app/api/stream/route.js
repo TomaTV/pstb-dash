@@ -4,32 +4,67 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req) {
   const encoder = new TextEncoder();
+  let isClosed = false;
+
   const stream = new ReadableStream({
     start(controller) {
+      const send = (data) => {
+        if (isClosed) return;
+        try {
+          controller.enqueue(encoder.encode(data));
+        } catch (e) {
+          console.error("SSE enqueue error:", e);
+          cleanup();
+        }
+      };
+
       // Send initial data immediately
-      const db = getFullDb();
-      const initialData = JSON.stringify(db);
-      controller.enqueue(encoder.encode(`data: ${initialData}\n\n`));
+      try {
+        const db = getFullDb();
+        send(`data: ${JSON.stringify(db)}\n\n`);
+      } catch (e) {
+        console.error("SSE initial data error:", e);
+      }
 
       // Send updates whenever db changes
       const onDbChange = () => {
-        const currentDb = getFullDb();
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(currentDb)}\n\n`));
+        try {
+          const currentDb = getFullDb();
+          send(`data: ${JSON.stringify(currentDb)}\n\n`);
+        } catch (e) {
+          console.error("SSE update error:", e);
+        }
       };
 
       dbEvents.on("change", onDbChange);
 
       // Keep connection alive with heartbeat
       const heartbeat = setInterval(() => {
-        controller.enqueue(encoder.encode(": heartbeat\n\n"));
-      }, 30000);
+        send(": heartbeat\n\n");
+      }, 15000); // More frequent heartbeat for Vercel
 
-      req.signal.addEventListener("abort", () => {
+      const cleanup = () => {
+        if (isClosed) return;
+        isClosed = true;
         clearInterval(heartbeat);
         dbEvents.off("change", onDbChange);
-        controller.close();
-      });
+        try {
+          controller.close();
+        } catch (e) {
+          // ignore already closed
+        }
+      };
+
+      req.signal.addEventListener("abort", cleanup);
+
+      // Vercel serverless functions have a timeout (usually 10-60s).
+      // We close the connection slightly before to allow clean reconnection.
+      const maxDuration = 55000; // 55 seconds
+      setTimeout(cleanup, maxDuration);
     },
+    cancel() {
+      isClosed = true;
+    }
   });
 
   return new Response(stream, {
@@ -37,7 +72,8 @@ export async function GET(req) {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
       "Connection": "keep-alive",
-      "X-Accel-Buffering": "no",   // disables Nginx / proxy buffering
+      "X-Accel-Buffering": "no",
     },
   });
 }
+
