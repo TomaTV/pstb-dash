@@ -9,6 +9,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { usePathname } from "next/navigation";
 import { DEFAULT_WIDGETS } from "@/lib/widgets";
 
 const STORAGE_KEY    = "pstb:widgets:v3";
@@ -23,6 +24,7 @@ const DEFAULT_SETTINGS = {
 const DashboardContext = createContext(null);
 
 export function DashboardProvider({ children }) {
+  const pathname = usePathname();
   const [widgets,     setWidgets]     = useState(DEFAULT_WIDGETS);
   const [settings,    setSettings]    = useState(DEFAULT_SETTINGS);
   const [focusedId,   setFocusedId]   = useState(null);
@@ -43,6 +45,11 @@ export function DashboardProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    if (pathname === "/admin/login") {
+      setHydrated(true);
+      return;
+    }
+
     let isMounted = true;
     let eventSource = null;
 
@@ -78,7 +85,7 @@ export function DashboardProvider({ children }) {
       isMounted = false;
       if (eventSource) eventSource.close();
     };
-  }, []);
+  }, [pathname]);
 
   // ── Focus / Fullscreen ──
   const focusWidget = useCallback((id) => {

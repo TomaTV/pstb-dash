@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { verifyAdminSessionToken } from "@/lib/auth";
 
 export async function GET() {
   try {
@@ -10,8 +11,8 @@ export async function GET() {
       return NextResponse.json({ authenticated: false });
     }
 
-    const session = globalThis.__adminSessions?.get(token);
-    if (!session || session.expiresAt < Date.now()) {
+    const isValid = await verifyAdminSessionToken(token);
+    if (!isValid) {
       return NextResponse.json({ authenticated: false });
     }
 

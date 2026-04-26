@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
+import { verifyAdminSessionToken } from "@/lib/auth";
 
-// Initialize session store if not already done
-if (!globalThis.__adminSessions) {
-  globalThis.__adminSessions = new Map();
-}
-
-export function proxy(req) {
+export async function proxy(req) {
   const url = req.nextUrl;
 
   // Protect /admin routes (but not /admin/login)
@@ -16,8 +12,8 @@ export function proxy(req) {
       return NextResponse.redirect(new URL("/admin/login", req.url));
     }
 
-    const session = globalThis.__adminSessions?.get(token);
-    if (!session || session.expiresAt < Date.now()) {
+    const isValid = await verifyAdminSessionToken(token);
+    if (!isValid) {
       // Expired or invalid — clear cookie and redirect
       const res = NextResponse.redirect(new URL("/admin/login", req.url));
       res.cookies.delete("pstb_admin_token");
