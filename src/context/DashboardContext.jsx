@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
@@ -19,12 +20,67 @@ const DEFAULT_SETTINGS = {
   autoRotate: true,
   rotateInterval: 15, // secondes — Perplexity: 12-18s pour bloc titre + contenu
   viewMode: "scene",  // "scene" | "orbit"
+  autoWeek: {
+    enabled: false,
+    dayWidgetMap: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] },
+    timeRules: [],
+    exceptions: [],
+  },
+  autoContent: {
+    enabled: false,
+    provider: "groq",
+    refreshHour: 6,
+    targets: { quote: true, word: true, puzzle: true, wordle: true },
+  },
 };
 
 const DashboardContext = createContext(null);
 
+function areWidgetsEqual(prev, next) {
+  if (prev === next) return true;
+  if (!Array.isArray(prev) || !Array.isArray(next)) return false;
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i += 1) {
+    const a = prev[i];
+    const b = next[i];
+    if (
+      a.id !== b.id ||
+      a.type !== b.type ||
+      a.title !== b.title ||
+      a.status !== b.status ||
+      a.focusable !== b.focusable ||
+      a.duration !== b.duration ||
+      JSON.stringify(a.data) !== JSON.stringify(b.data)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function areSettingsEqual(prev, next) {
+  if (prev === next) return true;
+  if (!prev || !next) return false;
+  return JSON.stringify(prev) === JSON.stringify(next);
+}
+
+function isTimeInRange(nowMinutes, start, end) {
+  if (!start || !end) return true;
+  const [sh, sm] = String(start).split(":").map(Number);
+  const [eh, em] = String(end).split(":").map(Number);
+  if (![sh, sm, eh, em].every(Number.isFinite)) return true;
+  const startM = sh * 60 + sm;
+  const endM = eh * 60 + em;
+  if (startM === endM) return true;
+  if (startM < endM) return nowMinutes >= startM && nowMinutes < endM;
+  return nowMinutes >= startM || nowMinutes < endM; // overnight
+}
+
 export function DashboardProvider({ children }) {
   const pathname = usePathname();
+  const reconnectTimerRef = useRef(null);
+  const reconnectDelayRef = useRef(3000);
+  const sseErrorCountRef = useRef(0);
   const [widgets,     setWidgets]     = useState(DEFAULT_WIDGETS);
   const [settings,    setSettings]    = useState(DEFAULT_SETTINGS);
   const [focusedId,   setFocusedId]   = useState(null);
@@ -53,18 +109,30 @@ export function DashboardProvider({ children }) {
     let isMounted = true;
     let eventSource = null;
 
+    const clearReconnectTimer = () => {
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current);
+        reconnectTimerRef.current = null;
+      }
+    };
+
     const connectSSE = () => {
+      clearReconnectTimer();
       eventSource = new EventSource("/api/stream");
+      eventSource.onopen = () => {
+        reconnectDelayRef.current = 3000;
+        sseErrorCountRef.current = 0;
+      };
       
       eventSource.onmessage = (event) => {
         if (!isMounted) return;
         try {
           const data = JSON.parse(event.data);
           if (Array.isArray(data.widgets)) {
-            setWidgets(prev => JSON.stringify(prev) !== JSON.stringify(data.widgets) ? data.widgets : prev);
+            setWidgets(prev => (areWidgetsEqual(prev, data.widgets) ? prev : data.widgets));
           }
           if (data.settings) {
-            setSettings(prev => JSON.stringify(prev) !== JSON.stringify(data.settings) ? data.settings : prev);
+            setSettings(prev => (areSettingsEqual(prev, data.settings) ? prev : data.settings));
           }
           setHydrated(true);
         } catch (e) {
@@ -73,9 +141,18 @@ export function DashboardProvider({ children }) {
       };
 
       eventSource.onerror = (err) => {
-        console.error("SSE connection error", err);
         eventSource.close();
-        if (isMounted) setTimeout(connectSSE, 3000); // Reconnect after 3s
+        if (!isMounted) return;
+        sseErrorCountRef.current += 1;
+        if (sseErrorCountRef.current >= 3) {
+          console.warn("SSE reconnecting", {
+            retries: sseErrorCountRef.current,
+            delayMs: reconnectDelayRef.current,
+          });
+        }
+        const jitter = Math.floor(Math.random() * 1000);
+        reconnectTimerRef.current = setTimeout(connectSSE, reconnectDelayRef.current + jitter);
+        reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 30000);
       };
     };
 
@@ -83,9 +160,22 @@ export function DashboardProvider({ children }) {
 
     return () => {
       isMounted = false;
+      clearReconnectTimer();
       if (eventSource) eventSource.close();
     };
   }, [pathname]);
+
+  useEffect(() => {
+    if (!settings?.autoContent?.enabled) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const doneKey = `pstb:auto-content:${today}`;
+    if (typeof window !== "undefined" && window.localStorage.getItem(doneKey)) return;
+    fetch("/api/automation/content", { method: "POST" })
+      .then(() => {
+        if (typeof window !== "undefined") window.localStorage.setItem(doneKey, "1");
+      })
+      .catch(() => {});
+  }, [settings?.autoContent?.enabled, settings?.autoContent?.refreshHour]);
 
   // ── Focus / Fullscreen ──
   const focusWidget = useCallback((id) => {
@@ -176,7 +266,7 @@ export function DashboardProvider({ children }) {
 
   const addWidget = useCallback((type, title, data = {}) => {
     const newWidget = {
-      id: `${type}-${Date.now()}`,
+      id: `${type}-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       type,
       title,
       focusable: true,
@@ -187,6 +277,7 @@ export function DashboardProvider({ children }) {
       saveToDB(next, settings);
       return next;
     });
+    return newWidget.id;
   }, [settings, saveToDB]);
 
   const deleteWidget = useCallback((id) => {
@@ -209,10 +300,45 @@ export function DashboardProvider({ children }) {
   }, [widgets, saveToDB]);
 
   // ── Dérivés ──
-  const focusableWidgets = useMemo(
-    () => widgets.filter(w => w.focusable && w.status !== "pending" && (!w.expiresAt || w.expiresAt > Date.now())),
-    [widgets],
-  );
+  const focusableWidgets = useMemo(() => {
+    const now = new Date();
+    const dow = now.getDay();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const todayStr = now.toISOString().slice(0, 10);
+    const autoWeek = settings?.autoWeek;
+
+    // Check calendar exceptions first
+    const exceptions = autoWeek?.exceptions || [];
+    const todayException = exceptions.find(e => e.date === todayStr);
+    if (todayException && autoWeek?.enabled) {
+      if (todayException.type === "holiday") {
+        return []; // No widgets on holidays
+      }
+      if (todayException.type === "event" && Array.isArray(todayException.widgetIds) && todayException.widgetIds.length > 0) {
+        return widgets.filter(w => w.focusable && w.status !== "pending" && todayException.widgetIds.includes(w.id));
+      }
+    }
+
+    // rawDayIds = null means "not configured for this day" → no filter
+    // rawDayIds = [] means "explicitly configured to 0 widgets" → block all
+    const rawDayIds = autoWeek?.dayWidgetMap?.[dow];
+    const dayAllowedIds = Array.isArray(rawDayIds) ? rawDayIds : null;
+    const hasDayConfig = autoWeek?.enabled && dayAllowedIds !== null;
+
+    return widgets.filter((w) => {
+      if (!w.focusable || w.status === "pending" || (w.expiresAt && w.expiresAt <= now.getTime())) return false;
+      if (!autoWeek?.enabled) return true;
+
+      // If the day is configured: empty array = block all; non-empty = filter to allowed IDs
+      if (hasDayConfig && !dayAllowedIds.includes(w.id)) return false;
+
+      const rules = (autoWeek.timeRules || []).filter(
+        (r) => r?.enabled !== false && r?.widgetId === w.id && Array.isArray(r.days) && r.days.includes(dow)
+      );
+      if (!rules.length) return true;
+      return rules.some((r) => isTimeInRange(nowMinutes, r.start, r.end));
+    });
+  }, [widgets, settings]);
 
   const focusedWidget = useMemo(
     () => widgets.find(w => w.id === focusedId) ?? null,

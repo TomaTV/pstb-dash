@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Gamepad2, Send } from "lucide-react";
+import StudentAuth from "@/components/StudentAuth";
 
 export default function JeuWordlePage() {
   const [wordData, setWordData] = useState(null);
@@ -134,130 +135,132 @@ export default function JeuWordlePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] text-white flex flex-col items-center py-8 px-4 font-sans max-w-md mx-auto relative overflow-hidden">
-      <div className="absolute top-[-10%] right-[-20%] w-[300px] h-[300px] bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none" />
-      
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-8 w-full justify-center">
-        <Gamepad2 className="text-emerald-400" size={28} />
-        <h1 className="text-2xl font-black tracking-tight text-white uppercase">Le Mot du Campus</h1>
-      </div>
+    <StudentAuth>
+      <div className="min-h-screen bg-[#0F0F0F] text-white flex flex-col items-center py-8 px-4 font-sans max-w-md mx-auto relative overflow-hidden">
+        <div className="absolute top-[-10%] right-[-20%] w-[300px] h-[300px] bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none" />
+        
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-8 w-full justify-center">
+          <Gamepad2 className="text-emerald-400" size={28} />
+          <h1 className="text-2xl font-black tracking-tight text-white uppercase">Le Mot du Campus</h1>
+        </div>
 
-      {/* Game Content */}
-      {!isPaused ? (
-        <>
-          {wordData.hint && (
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6 w-full text-center">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-1">Indice</div>
-              <div className="text-sm text-white/80">{wordData.hint}</div>
-            </div>
-          )}
+        {/* Game Content */}
+        {!isPaused ? (
+          <>
+            {wordData.hint && (
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6 w-full text-center">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 mb-1">Indice</div>
+                <div className="text-sm text-white/80">{wordData.hint}</div>
+              </div>
+            )}
 
-          {/* Grid */}
-          <div className="flex flex-col gap-2 mb-auto w-full max-w-[300px] mx-auto">
-            {Array.from({ length: MAX_GUESSES }).map((_, rowIndex) => {
-              const isCurrentRow = rowIndex === guesses.length;
-              const guess = guesses[rowIndex];
-              
-              return (
-                <div key={rowIndex} className="flex gap-2 justify-center">
-                  {Array.from({ length: word.length }).map((_, colIndex) => {
-                    let letter = "";
-                    let colorClass = "border-white/10";
-                    
-                    if (guess) {
-                      letter = guess[colIndex];
-                      colorClass = getLetterColor(letter, colIndex, guess);
-                    } else if (isCurrentRow) {
-                      letter = currentGuess[colIndex] || "";
-                      colorClass = letter ? "border-white/40" : "border-white/10";
-                      // Show revealed letter on current row if empty
-                      if (!letter && wordData.revealed.includes(colIndex)) {
-                        letter = word[colIndex];
-                        colorClass = "border-white/10 text-emerald-500/50";
+            {/* Grid */}
+            <div className="flex flex-col gap-2 mb-auto w-full max-w-[300px] mx-auto">
+              {Array.from({ length: MAX_GUESSES }).map((_, rowIndex) => {
+                const isCurrentRow = rowIndex === guesses.length;
+                const guess = guesses[rowIndex];
+                
+                return (
+                  <div key={rowIndex} className="flex gap-2 justify-center">
+                    {Array.from({ length: word.length }).map((_, colIndex) => {
+                      let letter = "";
+                      let colorClass = "border-white/10";
+                      
+                      if (guess) {
+                        letter = guess[colIndex];
+                        colorClass = getLetterColor(letter, colIndex, guess);
+                      } else if (isCurrentRow) {
+                        letter = currentGuess[colIndex] || "";
+                        colorClass = letter ? "border-white/40" : "border-white/10";
+                        // Show revealed letter on current row if empty
+                        if (!letter && wordData.revealed.includes(colIndex)) {
+                          letter = word[colIndex];
+                          colorClass = "border-white/10 text-emerald-500/50";
+                        }
+                      } else {
+                        // Future rows
+                        if (wordData.revealed.includes(colIndex)) {
+                          letter = word[colIndex];
+                          colorClass = "border-white/10 text-white/10";
+                        }
                       }
-                    } else {
-                      // Future rows
-                      if (wordData.revealed.includes(colIndex)) {
-                        letter = word[colIndex];
-                        colorClass = "border-white/10 text-white/10";
-                      }
-                    }
 
-                    return (
-                      <div 
-                        key={colIndex}
-                        className={`flex-1 aspect-square max-h-[60px] flex items-center justify-center font-black text-2xl sm:text-3xl rounded-lg border-2 uppercase transition-all duration-300 ${colorClass}`}
-                      >
-                        {letter}
-                      </div>
-                    );
-                  })}
+                      return (
+                        <div 
+                          key={colIndex}
+                          className={`flex-1 aspect-square max-h-[60px] flex items-center justify-center font-black text-2xl sm:text-3xl rounded-lg border-2 uppercase transition-all duration-300 ${colorClass}`}
+                        >
+                          {letter}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Status Messages */}
+            {gameStatus === "won" && (
+              <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-6 text-center w-full mt-8 animate-in fade-in slide-in-from-bottom-4">
+                <div className="text-4xl mb-2">🏆</div>
+                <h2 className="text-xl font-bold text-emerald-400 mb-1">Bravo !</h2>
+                <p className="text-sm text-white/70">Tu as trouvé le mot du jour en {guesses.length} essai{guesses.length > 1 ? 's' : ''}.</p>
+              </div>
+            )}
+
+            {gameStatus === "lost" && (
+              <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-6 text-center w-full mt-8 animate-in fade-in slide-in-from-bottom-4">
+                <h2 className="text-xl font-bold text-red-400 mb-1">Dommage !</h2>
+                <p className="text-sm text-white/70">Le mot était : <span className="font-bold text-white">{word}</span></p>
+              </div>
+            )}
+
+            {/* Keyboard */}
+            {gameStatus === "playing" && (
+              <div className="w-full mt-8 flex flex-col gap-2">
+                {KEYBOARD_ROWS.map((row, i) => (
+                  <div key={i} className="flex justify-center gap-1.5 sm:gap-2">
+                    {row.map(key => {
+                      const isSpecial = key === "ENTER" || key === "BACKSPACE";
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => onKeyPress(key)}
+                          className={`${isSpecial ? 'px-2 sm:px-4 text-xs' : 'flex-1 max-w-[40px] text-sm'} 
+                                    h-12 flex items-center justify-center font-bold rounded-lg transition-colors active:scale-95
+                                    ${getKeyboardKeyColor(key)}`}
+                        >
+                          {key === "BACKSPACE" ? "⌫" : key === "ENTER" ? <Send size={16} /> : key}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-center w-full mt-12 animate-in fade-in">
+            <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6">
+              <span className="text-3xl">🎉</span>
+            </div>
+            <h2 className="text-3xl font-black text-emerald-400 mb-4 tracking-tight">Mot Trouvé !</h2>
+            <p className="text-white/70 text-base max-w-sm mx-auto mb-8">
+              Quelqu'un a été plus rapide que toi... Le jeu est en pause.
+            </p>
+            <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
+              <div className="absolute inset-0 bg-emerald-500/5 z-0" />
+              <div className="relative z-10">
+                <div className="text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-2">Prochain mot dans</div>
+                <div className="text-4xl font-black font-mono text-white tabular-nums tracking-wider drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+                  {msLeft > 0 ? formatTime(msLeft) : "..."}
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Status Messages */}
-          {gameStatus === "won" && (
-            <div className="bg-emerald-500/20 border border-emerald-500/30 rounded-xl p-6 text-center w-full mt-8 animate-in fade-in slide-in-from-bottom-4">
-              <div className="text-4xl mb-2">🏆</div>
-              <h2 className="text-xl font-bold text-emerald-400 mb-1">Bravo !</h2>
-              <p className="text-sm text-white/70">Tu as trouvé le mot du jour en {guesses.length} essai{guesses.length > 1 ? 's' : ''}.</p>
-            </div>
-          )}
-
-          {gameStatus === "lost" && (
-            <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-6 text-center w-full mt-8 animate-in fade-in slide-in-from-bottom-4">
-              <h2 className="text-xl font-bold text-red-400 mb-1">Dommage !</h2>
-              <p className="text-sm text-white/70">Le mot était : <span className="font-bold text-white">{word}</span></p>
-            </div>
-          )}
-
-          {/* Keyboard */}
-          {gameStatus === "playing" && (
-            <div className="w-full mt-8 flex flex-col gap-2">
-              {KEYBOARD_ROWS.map((row, i) => (
-                <div key={i} className="flex justify-center gap-1.5 sm:gap-2">
-                  {row.map(key => {
-                    const isSpecial = key === "ENTER" || key === "BACKSPACE";
-                    return (
-                      <button
-                        key={key}
-                        onClick={() => onKeyPress(key)}
-                        className={`${isSpecial ? 'px-2 sm:px-4 text-xs' : 'flex-1 max-w-[40px] text-sm'} 
-                                  h-12 flex items-center justify-center font-bold rounded-lg transition-colors active:scale-95
-                                  ${getKeyboardKeyColor(key)}`}
-                      >
-                        {key === "BACKSPACE" ? "⌫" : key === "ENTER" ? <Send size={16} /> : key}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-center w-full mt-12 animate-in fade-in">
-          <div className="w-20 h-20 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6">
-            <span className="text-3xl">🎉</span>
-          </div>
-          <h2 className="text-3xl font-black text-emerald-400 mb-4 tracking-tight">Mot Trouvé !</h2>
-          <p className="text-white/70 text-base max-w-sm mx-auto mb-8">
-            Quelqu'un a été plus rapide que toi... Le jeu est en pause.
-          </p>
-          <div className="w-full bg-white/5 border border-white/10 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
-            <div className="absolute inset-0 bg-emerald-500/5 z-0" />
-            <div className="relative z-10">
-              <div className="text-xs font-bold uppercase tracking-[0.2em] text-white/40 mb-2">Prochain mot dans</div>
-              <div className="text-4xl font-black font-mono text-white tabular-nums tracking-wider drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]">
-                {msLeft > 0 ? formatTime(msLeft) : "..."}
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </StudentAuth>
   );
 }

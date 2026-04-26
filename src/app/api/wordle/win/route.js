@@ -56,6 +56,7 @@ export async function POST(req) {
         word: newWordData.word,
         hint: newWordData.hint,
         revealed: "0", // Reset revealed
+        guesses: [], // Reset the guesses array for the new game
         pauseUntil: pauseUntil,
         pauseMode: false, // Turn off manual pause
       }

@@ -1,29 +1,41 @@
 import { NextResponse } from "next/server";
-import { createAdminSessionToken } from "@/lib/auth";
+import { getUsers } from "@/lib/auth";
+import { cookies } from "next/headers";
 
 export async function POST(req) {
   try {
-    const { password } = await req.json();
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "PST&B-41@Chanzy";
+    const { email, pin } = await req.json();
 
-    if (password !== ADMIN_PASSWORD) {
-      return NextResponse.json({ error: "Mot de passe incorrect" }, { status: 401 });
+    if (!email || !pin) {
+      return NextResponse.json({ error: "Email et code PIN requis." }, { status: 400 });
     }
 
-    const token = await createAdminSessionToken();
+    const emailFormatted = email.trim().toLowerCase();
+    const users = getUsers();
+    const user = users[emailFormatted];
 
-    const res = NextResponse.json({ ok: true });
-    res.cookies.set("pstb_admin_token", token, {
+    if (!user) {
+      return NextResponse.json({ error: "Compte introuvable." }, { status: 404 });
+    }
+
+    if (user.pin !== pin) {
+      return NextResponse.json({ error: "Code PIN incorrect." }, { status: 403 });
+    }
+
+    // Set HTTP-only cookie
+    const cookieStore = await cookies();
+    cookieStore.set({
+      name: "pstb_student_email",
+      value: emailFormatted,
       httpOnly: true,
-      sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      maxAge: 60 * 60 * 24, // 24h
+      maxAge: 60 * 60 * 24 * 90, // 90 days
     });
 
-    return res;
-  } catch (e) {
-    console.error("[auth/login]", e);
-    return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: true, user: { firstName: user.firstName, lastName: user.lastName, email: user.email } });
+  } catch (error) {
+    console.error("Auth login error:", error);
+    return NextResponse.json({ error: "Erreur serveur." }, { status: 500 });
   }
 }

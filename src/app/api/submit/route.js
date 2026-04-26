@@ -15,7 +15,11 @@ export async function POST(req) {
     if (finalImageUrl && finalImageUrl.startsWith("data:image/")) {
       const match = finalImageUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
       if (match) {
-        const ext = match[1];
+        const ext = match[1].toLowerCase();
+        const allowedExts = ["png", "jpg", "jpeg", "gif", "webp"];
+        if (!allowedExts.includes(ext)) {
+          return NextResponse.json({ error: "Invalid image format. Allowed: png, jpg, jpeg, gif, webp" }, { status: 400 });
+        }
         const base64Data = match[2];
         const fileName = `${crypto.randomBytes(16).toString("hex")}.${ext}`;
         const uploadDir = path.join(process.cwd(), "public", "uploads");

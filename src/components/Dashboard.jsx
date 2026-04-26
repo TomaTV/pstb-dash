@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useMotionValue, useTransform, animate } from "framer-motion";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useDashboard } from "@/context/DashboardContext";
 import { renderWidget } from "@/components/widgets";
 import LiveTicker from "@/components/LiveTicker";
@@ -24,7 +24,7 @@ const WIDGET_META = {
 };
 
 /* ── Horloge persistante bas-gauche ── */
-function PersistentClock() {
+const PersistentClock = memo(function PersistentClock() {
   const [now, setNow] = useState(null);
   useEffect(() => {
     setNow(new Date());
@@ -37,7 +37,7 @@ function PersistentClock() {
   const secs = now
     ? now.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", second: "2-digit" })
     : "--";
-  const dateStr = now 
+  const dateStr = now
     ? now.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long" })
     : "---";
 
@@ -52,10 +52,10 @@ function PersistentClock() {
       </div>
     </div>
   );
-}
+});
 
 /* ── Preview scalée — div, jamais button (pas de nesting HTML invalide) ── */
-function WidgetPreview({ widget, width = 218 }) {
+const WidgetPreview = memo(function WidgetPreview({ widget, width = 218 }) {
   const W = 1280;
   const SCALE = width / W;
   const H = Math.round((width / 16) * 9 / SCALE); // ratio 16:9
@@ -75,10 +75,10 @@ function WidgetPreview({ widget, width = 218 }) {
       </div>
     </div>
   );
-}
+});
 
 /* ── Carte satellite (mode Orbite) — preview scalée + meta ── */
-function SatelliteCard({ widget, onFocus, isActive = false }) {
+const SatelliteCard = memo(function SatelliteCard({ widget, onFocus, isActive = false }) {
   const meta = WIDGET_META[widget.type] ?? WIDGET_META.showcase;
   const Icon = meta.icon;
   return (
@@ -121,7 +121,7 @@ function SatelliteCard({ widget, onFocus, isActive = false }) {
       </div>
     </motion.div>
   );
-}
+});
 
 export default function Dashboard() {
   const { fullscreenWidget, settings } = useDashboard();
@@ -196,7 +196,7 @@ function FocusZone({ viewMode }) {
       }
       return;
     }
-    
+
     if (!isFocusedValid) {
       focusWidget(focusableWidgets[0].id);
       indexRef.current = 0; setCurrentIndex(0);
@@ -208,7 +208,7 @@ function FocusZone({ viewMode }) {
 
     const currentWidget = focusableWidgets[indexRef.current];
     let durationSec = rotateInterval;
-    
+
     if (currentWidget) {
       if (currentWidget.duration) {
         durationSec = currentWidget.duration;
@@ -248,11 +248,11 @@ function FocusZone({ viewMode }) {
 
     progress.set(0);
     const anim = animate(progress, 1, { duration: durationSec, ease: "linear" });
-    
+
     timerRef.current = setTimeout(() => {
       advance();
     }, ms);
-    
+
     return () => { clearTimeout(timerRef.current); anim.stop(); };
   }, [autoRotate, rotateInterval, focusableWidgets, focusedId, focusWidget, progress]);
 
@@ -306,6 +306,7 @@ function FocusZone({ viewMode }) {
           <Image
             src="/Logo.svg"
             alt="PST&B"
+            loading="eager"
             width={100}
             height={40}
             className="opacity-75"
@@ -342,6 +343,22 @@ function FocusZone({ viewMode }) {
     </>
   );
 
+  /* ── Orbit mode variables — must be declared before any early return (Rules of Hooks) ── */
+  const orbitSlots = settings.orbitSlots?.satellites ?? [[], [], [], []];
+  const widgetsById = useMemo(() => new Map(widgets.map((w) => [w.id, w])), [widgets]);
+
+  const satelliteSlots = [0, 1, 2, 3].map(i => {
+    const pool = (orbitSlots[i] ?? []).map((id) => widgetsById.get(id)).filter(Boolean);
+    if (pool.length === 0) return null;
+    return pool[tick % pool.length];
+  });
+
+  const hasConfig = satelliteSlots.some(s => s !== null);
+  const autoSatellites = !hasConfig
+    ? focusableWidgets.filter(w => w.id !== focusedId).slice(0, 4)
+    : satelliteSlots.filter(Boolean);
+  const finalSatellites = hasConfig ? satelliteSlots : autoSatellites;
+
   /* ══════════════════
      MODE SCÈNE
   ══════════════════ */
@@ -361,6 +378,7 @@ function FocusZone({ viewMode }) {
                 top: tickerTop ? 44 : 0,
                 bottom: tickerBottom ? 44 : 0,
                 "--safe-bottom": safeBottom,
+                willChange: "transform, opacity, filter",
               }}
               initial={{ opacity: 0, filter: "blur(16px)" }}
               animate={{ opacity: 1, filter: "blur(0px)" }}
@@ -370,7 +388,7 @@ function FocusZone({ viewMode }) {
               {renderWidget(focusedWidget, "focus")}
             </motion.div>
           ) : (
-            <motion.div 
+            <motion.div
               key="empty-scene"
               className="absolute inset-0 flex flex-col items-center justify-center"
               style={{ top: tickerTop ? 44 : 0, bottom: tickerBottom ? 44 : 0 }}
@@ -433,26 +451,8 @@ function FocusZone({ viewMode }) {
   }
 
   /* ══════════════════════════════════════════════════════
-     MODE ORBITE — gros widget central + 4 satellites configurables
-     Chaque slot satellite a son propre pool qui défile avec le tick global.
+     MODE ORBITE — gros widget central + 4 satellites
   ══════════════════════════════════════════════════════ */
-  const orbitSlots = settings.orbitSlots?.satellites ?? [[], [], [], []];
-  const widgetById = (id) => widgets.find(w => w.id === id);
-
-  const satelliteSlots = [0, 1, 2, 3].map(i => {
-    const pool = (orbitSlots[i] ?? []).map(widgetById).filter(Boolean);
-    if (pool.length === 0) return null;
-    return pool[tick % pool.length];
-  });
-
-  // Fallback : si aucun slot configuré, on prend les widgets focusables suivants
-  const hasConfig = satelliteSlots.some(s => s !== null);
-  const autoSatellites = !hasConfig
-    ? focusableWidgets.filter(w => w.id !== focusedId).slice(0, 4)
-    : satelliteSlots.filter(Boolean);
-
-  const finalSatellites = hasConfig ? satelliteSlots : autoSatellites;
-
   return (
     <div className="absolute inset-0">
       <div className="absolute left-0 right-0 flex gap-4 px-6 pb-12"
@@ -464,6 +464,7 @@ function FocusZone({ viewMode }) {
               <motion.div
                 key={focusedWidget.id}
                 className="absolute inset-0 rounded-3xl overflow-hidden border border-white/10 bg-bg shadow-[0_0_80px_-15px_rgba(255,23,68,0.15)] ring-1 ring-white/5"
+                style={{ willChange: "transform, opacity, filter" }}
                 initial={{ opacity: 0, scale: 0.95, filter: "blur(15px)" }}
                 animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
                 exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)", transition: { duration: 0.3 } }}

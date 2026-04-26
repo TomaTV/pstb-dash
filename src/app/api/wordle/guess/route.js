@@ -3,8 +3,8 @@ import { getStore, setStore } from "@/lib/db";
 
 export async function POST(req) {
   try {
-    const { guess } = await req.json();
-    if (!guess) return NextResponse.json({ error: "Missing guess" }, { status: 400 });
+    let { guess } = await req.json();
+    if (!guess || typeof guess !== "string") return NextResponse.json({ error: "Missing guess" }, { status: 400 });
 
     const widgets = getStore("widgets");
     if (!widgets) return NextResponse.json({ error: "DB not found" }, { status: 404 });
@@ -19,6 +19,11 @@ export async function POST(req) {
     if (Date.now() < pauseUntil || currentWordle.data.pauseMode) {
         return NextResponse.json({ error: "Game is paused" }, { status: 400 });
     }
+
+    // Sanitize guess: uppercase, alphabetic only, slice to word length
+    const targetLength = currentWordle.data.word?.length || 5;
+    guess = guess.toUpperCase().replace(/[^A-Z]/g, "").slice(0, targetLength);
+    if (!guess) return NextResponse.json({ error: "Invalid guess format" }, { status: 400 });
 
     let guesses = currentWordle.data.guesses || [];
     guesses.push(guess);

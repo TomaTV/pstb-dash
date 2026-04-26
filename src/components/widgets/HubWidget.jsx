@@ -82,8 +82,22 @@ export default function HubWidget({ widget, mode = "grid" }) {
   const now = useNow();
   const weather = useWeather(lat, lon);
 
-  // Find next event from any next-event widget
+  // Manual override from Hub settings takes priority, then fallback to next-event widgets
   const nextEvent = useMemo(() => {
+    const manual = data?.nextEvent;
+    if (manual?.name && manual?.date) {
+      const t = new Date(manual.date).getTime();
+      if (t > Date.now()) {
+        return {
+          t,
+          name: manual.name,
+          location: manual.location || "",
+          date: manual.date,
+          source: "hub",
+        };
+      }
+    }
+
     const evWidgets = widgets.filter(w => w.type === "next-event");
     let best = null;
     for (const w of evWidgets) {
@@ -91,11 +105,11 @@ export default function HubWidget({ widget, mode = "grid" }) {
       if (!dt) continue;
       const t = new Date(dt).getTime();
       if (t > Date.now() && (!best || t < best.t)) {
-        best = { t, name: w.data.name, location: w.data.location, date: dt };
+        best = { t, name: w.data.name, location: w.data.location, date: dt, source: "next-event" };
       }
     }
     return best;
-  }, [widgets]);
+  }, [widgets, now, data?.nextEvent?.name, data?.nextEvent?.date, data?.nextEvent?.location]);
 
   const tickerMessages = (settings?.ticker?.messages || []).filter(m => m && m.trim());
   const tickerEnabled = settings?.ticker?.enabled;
@@ -190,6 +204,11 @@ export default function HubWidget({ widget, mode = "grid" }) {
                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.4em] text-violet mb-3">
                     <Calendar size={12} />
                     <span>Prochain événement</span>
+                    {nextEvent?.source === "hub" && (
+                      <span className="px-2 py-0.5 rounded-full bg-white/10 text-white/65 text-[9px] font-semibold tracking-wider">
+                        Hub
+                      </span>
+                    )}
                     {nextEvent && (
                       <span className="ml-auto px-2 py-0.5 rounded-full bg-violet/20 text-violet text-[10px] font-mono">
                         {timeUntil(nextEvent.date)}

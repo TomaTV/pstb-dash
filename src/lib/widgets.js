@@ -174,6 +174,47 @@ export const PRESETS = {
     ],
     settings: { viewMode: "scene", orbitSlots: { satellites: [[], [], [], []] } }
   },
+  "monitoring-reseau": {
+    label: "🛜 Monitoring réseau",
+    widgets: [
+      { id: `w-network-${Date.now()}`, type: "network-status", title: "État réseau campus", focusable: true, data: {} },
+      { id: `w-transport-${Date.now()}`, type: "transport", title: "Info Trafic", focusable: true, data: { campus: "PST&B · Paris 11e" } },
+    ],
+    settings: { viewMode: "scene", orbitSlots: { satellites: [[], [], [], []] } }
+  },
+  "auto-campus-live": {
+    label: "🏫 Campus auto live",
+    widgets: [
+      { id: `w-hub-${Date.now()}`, type: "hub", title: "Hub PST&B", focusable: true, data: { campus: "Campus Paris", lat: 48.8566, lon: 2.3522 } },
+      { id: `w-weather-${Date.now()}`, type: "weather", title: "Météo de la semaine", focusable: true, data: { city: "Paris", lat: 48.8566, lon: 2.3522 } },
+      { id: `w-transport-${Date.now()}`, type: "transport", title: "Info Trafic", focusable: true, data: { campus: "PST&B · Paris 11e" } },
+      { id: `w-jobs-${Date.now()}`, type: "jobs", title: "Offres d'alternance", focusable: true, data: { fetchCount: 20 } },
+      { id: `w-network-${Date.now()}`, type: "network-status", title: "État réseau campus", focusable: true, data: {} },
+    ],
+    settings: { viewMode: "scene", orbitSlots: { satellites: [[], [], [], []] } }
+  },
+  "salles-libres": {
+    label: "🗺️ Salles libres campus",
+    widgets: [
+      { id: `w-campus-map-${Date.now()}`, type: "campus-map", title: "Salles libres", focusable: true, data: {} },
+      { id: `w-hub-${Date.now()}`, type: "hub", title: "Hub PST&B", focusable: true, data: { campus: "Campus Paris", lat: 48.8566, lon: 2.3522 } },
+      { id: `w-transport-${Date.now()}`, type: "transport", title: "Info Trafic", focusable: true, data: { campus: "PST&B · Paris 11e" } },
+      { id: `w-weather-${Date.now()}`, type: "weather", title: "Météo", focusable: true, data: { city: "Paris", lat: 48.8566, lon: 2.3522 } },
+      { id: `w-word-${Date.now()}`, type: "word", title: "Mot du jour", focusable: true, data: { word: "", pronunciation: "", category: "", definition: "", example: "" } },
+    ],
+    settings: { viewMode: "scene", orbitSlots: { satellites: [[], [], [], []] } }
+  },
+  "bde-matin": {
+    label: "☀️ Matin BDE",
+    widgets: [
+      { id: `w-hub-${Date.now()}`, type: "hub", title: "Hub PST&B", focusable: true, data: { campus: "Campus Paris", lat: 48.8566, lon: 2.3522 } },
+      { id: `w-student-${Date.now()}`, type: "student", title: "Vie associative BDE", focusable: true, status: "approved", data: { title: "", description: "", qrUrl: "", submitter: "" } },
+      { id: `w-poll-${Date.now()}`, type: "poll", title: "Sondage du jour", focusable: true, data: { question: "Comment tu vas ce matin ?", options: [{ id: "1", label: "Top forme", votes: 0 }, { id: "2", label: "Moyen", votes: 0 }, { id: "3", label: "Besoin de café", votes: 0 }] } },
+      { id: `w-word-${Date.now()}`, type: "word", title: "Mot du jour", focusable: true, data: { word: "", pronunciation: "", category: "", definition: "", example: "" } },
+      { id: `w-transport-${Date.now()}`, type: "transport", title: "Info Trafic", focusable: true, data: { campus: "PST&B · Paris 11e" } },
+    ],
+    settings: { viewMode: "scene", orbitSlots: { satellites: [[], [], [], []] } }
+  },
   "default": {
     label: "⚙️ Séquence par défaut",
     widgets: DEFAULT_WIDGETS,
@@ -204,6 +245,8 @@ export const WIDGET_TYPES = [
   { type: "countdown", label: "Compte à rebours" },
   { type: "github-trending", label: "GitHub Trending" },
   { type: "hub", label: "Maintenant à PST&B (hub)" },
+  { type: "network-status", label: "État réseau campus" },
+  { type: "campus-map", label: "Carte / Salles Libres" },
 ];
 
 export const NEW_WIDGET_DEFAULTS = {
@@ -295,5 +338,11 @@ export const NEW_WIDGET_DEFAULTS = {
     campus: "Campus Paris",
     lat: 48.8566,
     lon: 2.3522,
+    nextEvent: {
+      name: "",
+      date: "",
+      location: "",
+    },
   },
+  "network-status": {},
 };

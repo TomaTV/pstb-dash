@@ -10,13 +10,13 @@ import {
   Calendar, BarChart3, Clock as ClockIcon, Newspaper, Sparkles, FileText,
   Quote as QuoteIcon, Sun, Share2, Brain, TrendingDown, Images, PartyPopper,
   X as XIcon, BookOpen, Gamepad2, Train, Briefcase, Radio, AlertTriangle, LogOut,
-  Activity, Wifi, WifiOff, RefreshCw, Save
+  Activity, Wifi, WifiOff, RefreshCw, Save, UserPlus
 } from "lucide-react";
 import { useDashboard } from "@/context/DashboardContext";
 import { Card, CardHeader, CardBody, CardTitle } from "@/components/ui/Card";
 import { Input, Textarea } from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import { NEW_WIDGET_DEFAULTS } from "@/lib/widgets";
+import { NEW_WIDGET_DEFAULTS, PRESETS } from "@/lib/widgets";
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors,
 } from "@dnd-kit/core";
@@ -49,6 +49,8 @@ const TYPE_META = {
   countdown: { label: "Countdown", Icon: Timer, color: "text-violet" },
   "github-trending": { label: "GitHub", Icon: Sparkles, color: "text-white" },
   hub: { label: "Hub PST&B", Icon: Sparkles, color: "text-violet" },
+  "network-status": { label: "État réseau", Icon: Wifi, color: "text-emerald-400" },
+  "campus-map": { label: "Salles Libres", Icon: LayoutGrid, color: "text-emerald-400" },
 };
 
 const ADD_CATEGORIES = [
@@ -61,6 +63,7 @@ const ADD_CATEGORIES = [
       { type: "clock", label: "Horloge", data: () => ({ city: "Paris", timezone: "Europe/Paris" }) },
       { type: "transport", label: "Info trafic", data: () => NEW_WIDGET_DEFAULTS.transport },
       { type: "student", label: "BDE / Étudiants", data: () => NEW_WIDGET_DEFAULTS.student },
+      { type: "campus-map", label: "Carte / Salles", data: () => ({}) },
     ]
   },
   {
@@ -89,6 +92,7 @@ const ADD_CATEGORIES = [
     name: "Live Data & Hub",
     items: [
       { type: "hub", label: "Hub PST&B", data: () => NEW_WIDGET_DEFAULTS.hub },
+      { type: "network-status", label: "État réseau campus", data: () => NEW_WIDGET_DEFAULTS["network-status"] },
       { type: "countdown", label: "Compte à rebours", data: () => NEW_WIDGET_DEFAULTS.countdown },
       { type: "crypto", label: "Crypto Markets", data: () => NEW_WIDGET_DEFAULTS.crypto },
       { type: "github-trending", label: "GitHub Trending", data: () => NEW_WIDGET_DEFAULTS["github-trending"] },
@@ -117,10 +121,26 @@ export default function AdminPanel() {
   const [selectedId, setSelectedId] = useState(widgets[0]?.id ?? null);
   const [savedAt, setSavedAt] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [confirmModal, setConfirmModal] = useState({ open: false, title: "", message: "", onConfirm: null });
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+    confirmText: "Confirmer",
+    tone: "danger",
+    hint: "",
+  });
 
-  const askConfirm = (title, message, onConfirm) =>
-    setConfirmModal({ open: true, title, message, onConfirm });
+  const askConfirm = (title, message, onConfirm, options = {}) =>
+    setConfirmModal({
+      open: true,
+      title,
+      message,
+      onConfirm,
+      confirmText: options.confirmText || "Confirmer",
+      tone: options.tone || "danger",
+      hint: options.hint || "",
+    });
   const closeConfirm = () => setConfirmModal(s => ({ ...s, open: false }));
 
   const selectedWidget = widgets.find(w => w.id === selectedId) ?? null;
@@ -279,7 +299,12 @@ export default function AdminPanel() {
                           askConfirm(
                             "Supprimer ce widget",
                             `"${w.title}" sera retiré de la séquence définitivement.`,
-                            () => { deleteWidget(w.id); if (selectedId === w.id) setSelectedId("settings"); }
+                            () => { deleteWidget(w.id); if (selectedId === w.id) setSelectedId("settings"); },
+                            {
+                              confirmText: "Supprimer",
+                              tone: "danger",
+                              hint: "Action irreversible - ce widget et sa configuration seront perdus.",
+                            }
                           );
                         }}
                       />
@@ -296,7 +321,9 @@ export default function AdminPanel() {
               <AnalyticsPanel widgets={widgets} settings={settings} />
             ) : selectedId === "settings" ? (
               <GlobalSettingsPanel
+                widgets={widgets}
                 settings={settings}
+                addWidget={addWidget}
                 onChange={(p) => { updateSettings(p); flash(); }}
                 onReset={() => askConfirm(
                   "Réinitialiser",
@@ -428,34 +455,40 @@ export default function AdminPanel() {
       {/* ── Confirm modal ── */}
       {confirmModal.open && (
         <div
-          className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/70 backdrop-blur-sm"
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
           onClick={closeConfirm}
         >
           <div
-            className="bg-[#111] border border-white/12 rounded-3xl p-8 w-full max-w-md shadow-2xl relative"
+            className="relative overflow-hidden bg-[#111] border border-white/12 rounded-3xl p-6 w-[min(92vw,460px)] shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-start gap-4 mb-6">
-              <div className="shrink-0 mt-0.5 w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-red-500/[0.07] via-transparent to-transparent" />
+            <div className="flex items-start gap-3.5 mb-5">
+              <div className="shrink-0 mt-0.5 w-10 h-10 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.15)]">
                 <AlertTriangle size={18} className="text-red-400" />
               </div>
-              <div>
-                <h3 className="text-lg font-black text-white">{confirmModal.title}</h3>
+              <div className="relative z-10">
+                <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-red-300/80 mb-1">Confirmation requise</div>
+                <h3 className="text-lg leading-tight font-black text-white">{confirmModal.title}</h3>
                 <p className="text-sm text-white/55 mt-1.5 leading-relaxed">{confirmModal.message}</p>
+                {confirmModal.hint && (
+                  <p className="text-[10px] text-red-300/75 mt-2 font-medium">{confirmModal.hint}</p>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-3 justify-end">
+            <div className="flex items-center gap-2.5">
               <button
                 onClick={closeConfirm}
-                className="px-5 py-2.5 rounded-xl border border-white/10 text-white/70 hover:text-white hover:border-white/25 text-sm font-semibold transition-colors"
+                className="px-4 py-1.5 rounded-xl border border-white/10 text-white/55 hover:text-white hover:border-white/20 text-[10px] font-bold uppercase tracking-[0.15em] transition-colors"
               >
                 Annuler
               </button>
+              <div className="flex-1" />
               <button
                 onClick={() => { confirmModal.onConfirm?.(); closeConfirm(); }}
-                className="px-5 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-white text-sm font-black transition-colors shadow-[0_4px_20px_rgba(239,68,68,0.3)]"
+                className="px-5 py-1.5 rounded-xl bg-red-500 hover:bg-red-400 text-white text-[10px] font-black uppercase tracking-[0.15em] transition-colors shadow-[0_2px_12px_rgba(239,68,68,0.3)]"
               >
-                Confirmer
+                {confirmModal.confirmText}
               </button>
             </div>
           </div>
@@ -873,9 +906,10 @@ function BreakingNewsPanel({ breaking, onChange }) {
 /* ════════════════════════════════════════════
    GLOBAL SETTINGS
 ═══════════════════════════════════════════════ */
-function GlobalSettingsPanel({ settings, onChange, onReset, onLoadPreset }) {
+function GlobalSettingsPanel({ settings, widgets, addWidget, onChange, onReset, onLoadPreset }) {
   const [draftSettings, setDraftSettings] = useState(settings);
   const [mounted, setMounted] = useState(false);
+  const [selectedAutoDay, setSelectedAutoDay] = useState(1);
 
   useEffect(() => {
     setMounted(true);
@@ -891,6 +925,266 @@ function GlobalSettingsPanel({ settings, onChange, onReset, onLoadPreset }) {
   const updateDraft = (patch) => {
     setDraftSettings(prev => ({ ...prev, ...patch }));
   };
+
+  const dayLabels = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+  const dayFullLabels = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+  const SMART_WEEK_PRESETS = [
+    {
+      key: "campus", label: "Semaine campus", Icon: Sun, color: "text-blue-300",
+      desc: "Essentiels du campus, décalé chaque jour",
+      dayTypes: {
+        1: ["hub", "weather", "transport", "jobs", "word", "quote"],
+        2: ["hub", "weather", "transport", "network-status", "word", "rss"],
+        3: ["hub", "weather", "transport", "jobs", "showcase", "quote"],
+        4: ["hub", "weather", "transport", "business", "word", "network-status"],
+        5: ["hub", "weather", "gallery", "word", "spo", "transport"],
+      },
+      // trafic actif seulement aux heures de pointe, offres d'alternance l'après-midi
+      timeRules: [
+        { type: "transport", start: "07:30", end: "09:30", days: [1,2,3,4,5] },
+        { type: "transport", start: "17:00", end: "19:30", days: [1,2,3,4,5] },
+        { type: "jobs",      start: "12:00", end: "18:00", days: [1,2,3,4,5] },
+      ],
+    },
+    {
+      key: "event", label: "Semaine événement", Icon: PartyPopper, color: "text-fuchsia-400",
+      desc: "Événements au premier plan, interactivité",
+      dayTypes: {
+        1: ["hub", "next-event", "countdown", "word", "weather", "poll"],
+        2: ["hub", "next-event", "spo", "gallery", "word", "quote"],
+        3: ["hub", "next-event", "countdown", "poll", "transport", "showcase"],
+        4: ["hub", "next-event", "wordle", "word", "spo", "weather"],
+        5: ["hub", "next-event", "gallery", "poll", "student", "showcase"],
+      },
+      // sondage visible seulement en fin de journée, transport aux heures de pointe
+      timeRules: [
+        { type: "poll",      start: "16:00", end: "20:00", days: [1,2,3,4,5] },
+        { type: "transport", start: "07:30", end: "09:30", days: [1,2,3,4,5] },
+        { type: "transport", start: "17:00", end: "19:30", days: [1,2,3,4,5] },
+      ],
+    },
+    {
+      key: "info", label: "Mode information", Icon: Newspaper, color: "text-amber-400",
+      desc: "News, stats, citations, social — focus contenu",
+      dayTypes: {
+        1: ["hub", "rss", "quote", "business", "word", "weather"],
+        2: ["hub", "rss", "social", "showcase", "crypto", "word"],
+        3: ["hub", "rss", "quote", "business", "transport", "network-status"],
+        4: ["hub", "rss", "social", "word", "showcase", "weather"],
+        5: ["hub", "rss", "quote", "crypto", "gallery", "business"],
+      },
+      // crypto en matinée seulement (marchés ouverts), social en fin de journée
+      timeRules: [
+        { type: "crypto",  start: "08:00", end: "12:00", days: [1,2,3,4,5] },
+        { type: "social",  start: "15:00", end: "20:00", days: [1,2,3,4,5] },
+      ],
+    },
+    {
+      key: "interactive", label: "Interactif & fun", Icon: Gamepad2, color: "text-emerald-400",
+      desc: "Wordle, sondages, énigmes, BDE — engagement max",
+      dayTypes: {
+        1: ["hub", "wordle", "poll", "word", "weather", "transport"],
+        2: ["hub", "puzzle", "poll", "gallery", "word", "showcase"],
+        3: ["hub", "wordle", "student", "word", "transport", "weather"],
+        4: ["hub", "puzzle", "poll", "showcase", "quote", "word"],
+        5: ["hub", "wordle", "gallery", "student", "poll", "word"],
+      },
+      // jeux visibles en pause déj et après les cours
+      timeRules: [
+        { type: "wordle",  start: "12:00", end: "14:00", days: [1,2,3,4,5] },
+        { type: "wordle",  start: "17:30", end: "20:00", days: [1,2,3,4,5] },
+        { type: "puzzle",  start: "12:00", end: "14:00", days: [1,2,3,4,5] },
+        { type: "puzzle",  start: "17:30", end: "20:00", days: [1,2,3,4,5] },
+        { type: "poll",    start: "11:00", end: "20:00", days: [1,2,3,4,5] },
+      ],
+    },
+    {
+      key: "jpo", label: "Journée Portes Ouvertes (JPO)", Icon: UserPlus, color: "text-rose-400",
+      desc: "Idéal pour les visiteurs : Galeries, Vidéos, Chiffres & Météo",
+      dayTypes: {
+        1: ["hub", "gallery", "iframe", "showcase", "quote", "weather"],
+        2: ["hub", "gallery", "iframe", "business", "quote", "weather"],
+        3: ["hub", "gallery", "iframe", "showcase", "quote", "weather"],
+        4: ["hub", "gallery", "iframe", "business", "quote", "weather"],
+        5: ["hub", "gallery", "iframe", "showcase", "quote", "weather"],
+        6: ["hub", "gallery", "iframe", "showcase", "quote", "weather"], // Activé le samedi pour la JPO
+      },
+      timeRules: [],
+    },
+    {
+      key: "salles-libres", label: "Salles libres", Icon: LayoutGrid, color: "text-cyan-400",
+      desc: "Carte des salles + essentiels campus — idéal couloirs & accueil",
+      dayTypes: {
+        1: ["campus-map", "hub", "transport", "weather", "word", "quote"],
+        2: ["campus-map", "hub", "transport", "network-status", "word", "rss"],
+        3: ["campus-map", "hub", "transport", "weather", "jobs", "quote"],
+        4: ["campus-map", "hub", "transport", "business", "word", "network-status"],
+        5: ["campus-map", "hub", "gallery", "weather", "word", "quote"],
+      },
+      timeRules: [
+        { type: "transport", start: "07:30", end: "09:30", days: [1,2,3,4,5] },
+        { type: "transport", start: "17:00", end: "19:30", days: [1,2,3,4,5] },
+        { type: "campus-map", start: "07:00", end: "21:00", days: [1,2,3,4,5] },
+      ],
+    },
+    {
+      key: "bde-matin", label: "Matin BDE", Icon: BookOpen, color: "text-orange-400",
+      desc: "Vie étudiante & associations au démarrage de journée",
+      dayTypes: {
+        1: ["hub", "student", "poll", "weather", "word", "transport"],
+        2: ["hub", "student", "puzzle", "word", "transport", "rss"],
+        3: ["hub", "student", "poll", "showcase", "word", "weather"],
+        4: ["hub", "student", "puzzle", "word", "transport", "quote"],
+        5: ["hub", "student", "gallery", "poll", "word", "wordle"],
+      },
+      timeRules: [
+        { type: "student",  start: "07:30", end: "12:00", days: [1,2,3,4,5] },
+        { type: "poll",     start: "10:00", end: "18:00", days: [1,2,3,4,5] },
+        { type: "transport",start: "07:30", end: "09:30", days: [1,2,3,4,5] },
+        { type: "wordle",   start: "12:00", end: "14:00", days: [5] },
+      ],
+    },
+    { key: "full", label: "Tout activer", Icon: Zap, color: "text-violet", desc: "Tous les widgets Lun→Ven, aucune règle horaire", dayTypes: "all", timeRules: [] },
+    { key: "clear", label: "Tout vider", Icon: RotateCcw, color: "text-white/40", desc: "Recommencer de zéro", dayTypes: {}, timeRules: [] },
+  ];
+  const autoWeek = draftSettings.autoWeek || {
+    enabled: false,
+    dayWidgetMap: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] },
+    timeRules: [],
+  };
+  const autoContent = draftSettings.autoContent || {
+    enabled: false,
+    provider: "groq",
+    refreshHour: 6,
+    targets: { quote: true, word: true, puzzle: true, wordle: true },
+  };
+
+  const updateAutoWeek = (next) => updateDraft({ autoWeek: next });
+  const updateAutoContent = (next) => updateDraft({ autoContent: next });
+
+  const selectedDayWidgetIds = autoWeek.dayWidgetMap?.[selectedAutoDay] || [];
+  const applyPresetToDay = (day, presetKey) => {
+    const preset = PRESETS[presetKey];
+    if (!preset) return;
+    const presetTypes = new Set((preset.widgets || []).map((w) => w.type));
+    const ids = widgets.filter((w) => presetTypes.has(w.type)).map((w) => w.id);
+    updateAutoWeek({
+      ...autoWeek,
+      dayWidgetMap: { ...(autoWeek.dayWidgetMap || {}), [day]: ids },
+    });
+  };
+
+  const toggleWidgetForDay = (day, widgetId) => {
+    const current = autoWeek.dayWidgetMap?.[day] || [];
+    const next = current.includes(widgetId)
+      ? current.filter((id) => id !== widgetId)
+      : [...current, widgetId];
+    updateAutoWeek({
+      ...autoWeek,
+      dayWidgetMap: { ...(autoWeek.dayWidgetMap || {}), [day]: next },
+    });
+  };
+
+  const addTimeRule = () => {
+    const firstWidgetId = widgets[0]?.id || "";
+    const nextRules = [
+      ...(autoWeek.timeRules || []),
+      {
+        id: `rule-${Date.now()}`,
+        widgetId: firstWidgetId,
+        start: "16:00",
+        end: "18:00",
+        days: [1, 2, 3, 4, 5],
+        enabled: true,
+      },
+    ];
+    updateAutoWeek({ ...autoWeek, timeRules: nextRules });
+  };
+
+  const updateTimeRule = (id, patch) => {
+    const nextRules = (autoWeek.timeRules || []).map((r) => (r.id === id ? { ...r, ...patch } : r));
+    updateAutoWeek({ ...autoWeek, timeRules: nextRules });
+  };
+
+  const removeTimeRule = (id) => {
+    const nextRules = (autoWeek.timeRules || []).filter((r) => r.id !== id);
+    updateAutoWeek({ ...autoWeek, timeRules: nextRules });
+  };
+
+  const applySmartWeekPreset = (preset) => {
+    const existingTypes = new Set(widgets.map(w => w.type));
+    // Collect all types needed across all days
+    const allNeeded = new Set();
+    if (preset.dayTypes === "all") {
+      Object.keys(TYPE_META).forEach(t => allNeeded.add(t));
+    } else if (preset.dayTypes && typeof preset.dayTypes === "object") {
+      Object.values(preset.dayTypes).flat().forEach(t => allNeeded.add(t));
+    }
+    // Also collect types from timeRules
+    (preset.timeRules || []).forEach(r => r.type && allNeeded.add(r.type));
+
+    // Auto-add missing widgets and build a combined array of existing + new widgets
+    const combinedWidgets = [...widgets];
+    for (const type of allNeeded) {
+      if (!existingTypes.has(type) && TYPE_META[type] && addWidget) {
+        const defaults = NEW_WIDGET_DEFAULTS[type] || {};
+        const newId = addWidget(type, TYPE_META[type].label, typeof defaults === "object" ? { ...defaults } : {});
+        if (newId) combinedWidgets.push({ id: newId, type });
+      }
+    }
+
+    // Build per-day map
+    const newMap = {};
+    for (let d = 0; d <= 6; d++) {
+      const isWeekend = d === 0 || d === 6;
+      if (isWeekend) { newMap[d] = []; continue; }
+      if (preset.dayTypes === "all") {
+        newMap[d] = combinedWidgets.map(w => w.id);
+      } else {
+        const types = preset.dayTypes?.[d] || [];
+        newMap[d] = combinedWidgets.filter(w => types.includes(w.type)).map(w => w.id);
+      }
+    }
+
+    // Convert type-based timeRules → widgetId-based rules
+    const timeRules = [];
+    (preset.timeRules || []).forEach((r, i) => {
+      const matchedWidgets = combinedWidgets.filter(w => w.type === r.type);
+      matchedWidgets.forEach(w => {
+        // Parse HH:MM to "HH:MM" — runtime already uses string comparison
+        timeRules.push({
+          id: `preset-rule-${i}-${w.id}`,
+          widgetId: w.id,
+          start: r.start,
+          end: r.end,
+          days: r.days,
+          enabled: true,
+        });
+      });
+    });
+
+    updateAutoWeek({ ...autoWeek, dayWidgetMap: newMap, timeRules });
+  };
+
+  const exceptions = autoWeek.exceptions || [];
+  const addException = () => {
+    updateAutoWeek({ ...autoWeek, exceptions: [...exceptions, { id: `exc-${Date.now()}`, date: "", label: "", type: "holiday", widgetIds: [] }] });
+  };
+  const updateException = (id, patch) => {
+    updateAutoWeek({ ...autoWeek, exceptions: exceptions.map(e => e.id === id ? { ...e, ...patch } : e) });
+  };
+  const removeException = (id) => {
+    updateAutoWeek({ ...autoWeek, exceptions: exceptions.filter(e => e.id !== id) });
+  };
+  const toggleExceptionWidget = (excId, widgetId) => {
+    const exc = exceptions.find(e => e.id === excId);
+    if (!exc) return;
+    const ids = exc.widgetIds || [];
+    updateException(excId, { widgetIds: ids.includes(widgetId) ? ids.filter(x => x !== widgetId) : [...ids, widgetId] });
+  };
+
+  const [generating, setGenerating] = useState(false);
+  const [genResult, setGenResult] = useState(null);
 
   return (
     <div className="max-w-3xl mx-auto w-full space-y-4 pb-8 relative">
@@ -967,6 +1261,293 @@ function GlobalSettingsPanel({ settings, onChange, onReset, onLoadPreset }) {
 
       <Divider />
 
+      <FieldGroup eyebrow="Planning hebdomadaire">
+        <label className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.015] px-5 py-3.5 cursor-pointer hover:border-white/20 transition-colors">
+          <div>
+            <div className="text-sm font-semibold text-white">Activer le planning hebdomadaire</div>
+            <div className="text-[11px] text-white/45 mt-0.5">Configure automatiquement les widgets par jour et heure.</div>
+          </div>
+          <div
+            onClick={(e) => { e.preventDefault(); updateAutoWeek({ ...autoWeek, enabled: !autoWeek.enabled }); }}
+            className={`relative h-6 w-11 rounded-full transition-colors shrink-0 ${autoWeek.enabled ? "bg-violet" : "bg-black border border-white/15"}`}
+          >
+            <div className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${autoWeek.enabled ? "translate-x-5" : "translate-x-0.5"}`} />
+          </div>
+        </label>
+
+        {autoWeek.enabled && (
+          <div className="space-y-4">
+            {/* ── Smart week presets ── */}
+            <div className="grid grid-cols-3 gap-2">
+              {SMART_WEEK_PRESETS.map(p => {
+                const PIcon = p.Icon;
+                return (
+                  <button key={p.key} onClick={() => applySmartWeekPreset(p)}
+                    className="group flex items-center gap-2.5 p-3 rounded-xl border border-white/8 bg-white/[0.02] hover:bg-violet/10 hover:border-violet/30 transition-all text-left">
+                    <div className={`shrink-0 w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform ${p.color}`}>
+                      <PIcon size={15} strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-bold text-white group-hover:text-violet transition-colors leading-tight truncate">{p.label}</div>
+                      <div className="text-[9px] text-white/30 leading-tight truncate">{p.desc}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ── Week overview (Lun–Ven only, Sam/Dim = fermé) ── */}
+            <div className="grid grid-cols-7 gap-1.5">
+              {dayLabels.map((label, idx) => {
+                const dayIds = autoWeek.dayWidgetMap?.[idx] || [];
+                const isSelected = selectedAutoDay === idx;
+                const isWeekend = idx === 0 || idx === 6;
+
+                if (isWeekend) {
+                  return (
+                    <div key={label} className="flex flex-col items-center p-2 rounded-xl border border-white/5 bg-black/20 opacity-30">
+                      <span className="text-[10px] font-bold text-white/30">{label}</span>
+                      <span className="text-[9px] text-white/20 mt-1 font-medium">Fermé</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <button key={label} onClick={() => setSelectedAutoDay(idx)}
+                    className={`relative flex flex-col items-center p-2 rounded-xl border transition-all ${isSelected ? "border-violet bg-violet/10 ring-1 ring-violet/25 shadow-[0_0_12px_rgba(101,31,255,0.15)]" : "border-white/8 bg-white/[0.015] hover:border-white/15 hover:bg-white/[0.03]"}`}>
+                    <span className={`text-[10px] font-bold ${isSelected ? "text-violet" : "text-white/60"}`}>{label}</span>
+                    <span className={`text-lg font-black mt-0.5 ${isSelected ? "text-white" : dayIds.length ? "text-white/80" : "text-white/20"}`}>{dayIds.length}</span>
+                    <div className="flex gap-0.5 mt-1 flex-wrap justify-center max-w-full">
+                      {dayIds.slice(0, 5).map(id => {
+                        const w = widgets.find(x => x.id === id);
+                        const meta = w ? TYPE_META[w.type] : null;
+                        const dotColor = meta?.color?.includes("violet") ? "#651FFF" : meta?.color?.includes("blue") ? "#60A5FA" : meta?.color?.includes("emerald") ? "#34D399" : meta?.color?.includes("amber") ? "#FBBF24" : meta?.color?.includes("pink") ? "#F472B6" : meta?.color?.includes("red") ? "#F87171" : "#666";
+                        return <div key={id} className="w-1.5 h-1.5 rounded-full" style={{ background: dotColor }} />;
+                      })}
+                      {dayIds.length > 5 && <span className="text-[7px] text-white/25 ml-0.5">+{dayIds.length - 5}</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* ── Selected day detail ── */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="text-sm font-bold text-white">{dayFullLabels[selectedAutoDay]}</div>
+                  <div className="text-[10px] text-white/35">{selectedDayWidgetIds.length} / {widgets.length} widgets programmés</div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => updateAutoWeek({ ...autoWeek, dayWidgetMap: { ...(autoWeek.dayWidgetMap || {}), [selectedAutoDay]: widgets.map(w => w.id) } })} className="text-[9px] px-2 py-1 rounded-md border border-white/10 text-white/50 hover:text-white hover:border-white/25 transition-colors font-bold uppercase tracking-wider">Tous</button>
+                  <button onClick={() => updateAutoWeek({ ...autoWeek, dayWidgetMap: { ...(autoWeek.dayWidgetMap || {}), [selectedAutoDay]: [] } })} className="text-[9px] px-2 py-1 rounded-md border border-white/10 text-white/50 hover:text-red-400 hover:border-red-400/30 transition-colors font-bold uppercase tracking-wider">Aucun</button>
+                </div>
+              </div>
+
+              {/* Active widgets for this day */}
+              {selectedDayWidgetIds.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-[9px] font-bold uppercase tracking-widest text-emerald-400/60 mb-1.5">Actifs ce jour</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {widgets.filter(w => selectedDayWidgetIds.includes(w.id)).map((w) => {
+                      const meta = TYPE_META[w.type] ?? { Icon: Sparkles, color: "text-white/40" };
+                      const Icon = meta.Icon;
+                      return (
+                        <button key={w.id} onClick={() => toggleWidgetForDay(selectedAutoDay, w.id)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all border bg-violet/12 border-violet/35 text-white hover:bg-red-500/10 hover:border-red-400/30 hover:text-red-300 group">
+                          <Icon size={11} className={meta.color} strokeWidth={2} />
+                          <span>{w.title}</span>
+                          <XIcon size={9} className="text-white/20 group-hover:text-red-400 ml-0.5" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Inactive widgets (available to add) */}
+              {widgets.filter(w => !selectedDayWidgetIds.includes(w.id)).length > 0 && (
+                <div>
+                  {selectedDayWidgetIds.length > 0 && <div className="h-px bg-white/6 mb-3" />}
+                  <div className="text-[9px] font-bold uppercase tracking-widest text-white/25 mb-1.5">Disponibles</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {widgets.filter(w => !selectedDayWidgetIds.includes(w.id)).map((w) => {
+                      const meta = TYPE_META[w.type] ?? { Icon: Sparkles, color: "text-white/40" };
+                      const Icon = meta.Icon;
+                      return (
+                        <button key={w.id} onClick={() => toggleWidgetForDay(selectedAutoDay, w.id)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all border bg-white/[0.02] border-white/8 text-white/35 hover:text-white hover:border-violet/30 hover:bg-violet/8">
+                          <Icon size={11} className="text-white/25" strokeWidth={2} />
+                          <span>{w.title}</span>
+                          <Plus size={9} className="text-white/15 ml-0.5" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── Time rules ── */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="text-xs font-bold text-white">Règles horaires</div>
+                  <div className="text-[10px] text-white/30">Widgets activés seulement sur certains créneaux</div>
+                </div>
+                <button onClick={addTimeRule} className="text-[10px] px-2.5 py-1 rounded-lg border border-violet/30 text-violet hover:text-white hover:bg-violet/20 font-bold transition-colors">+ Règle</button>
+              </div>
+              {(autoWeek.timeRules || []).length === 0 ? (
+                <div className="text-[11px] text-white/25 italic">Aucune règle — les widgets suivent le planning journalier.</div>
+              ) : (
+                <div className="space-y-2">
+                  {(autoWeek.timeRules || []).map((rule) => {
+                    const ruleWidget = widgets.find(w => w.id === rule.widgetId);
+                    const ruleMeta = ruleWidget ? TYPE_META[ruleWidget.type] : null;
+                    const RuleIcon = ruleMeta?.Icon ?? Sparkles;
+                    return (
+                      <div key={rule.id} className="flex items-center gap-2 rounded-lg border border-white/8 bg-black/20 p-2">
+                        <select value={rule.widgetId} onChange={(e) => updateTimeRule(rule.id, { widgetId: e.target.value })} className="flex-1 min-w-0 rounded-lg bg-white/[0.03] border border-white/10 px-2 py-1.5 text-[11px] text-white [&>option]:bg-[#141414]">
+                          {widgets.map((w) => <option key={w.id} value={w.id}>{w.title}</option>)}
+                        </select>
+                        <input type="time" value={rule.start || "16:00"} onChange={(e) => updateTimeRule(rule.id, { start: e.target.value })} className="w-20 rounded-lg bg-white/[0.03] border border-white/10 px-2 py-1.5 text-[11px] text-white text-center" />
+                        <span className="text-[10px] text-white/25">→</span>
+                        <input type="time" value={rule.end || "18:00"} onChange={(e) => updateTimeRule(rule.id, { end: e.target.value })} className="w-20 rounded-lg bg-white/[0.03] border border-white/10 px-2 py-1.5 text-[11px] text-white text-center" />
+                        <div className="flex gap-0.5">
+                          {dayLabels.map((dl, di) => {
+                            const dayActive = (rule.days || []).includes(di);
+                            return (
+                              <button key={di} onClick={() => { const next = dayActive ? (rule.days || []).filter(d => d !== di) : [...(rule.days || []), di].sort(); updateTimeRule(rule.id, { days: next }); }}
+                                className={`w-5 h-5 rounded text-[8px] font-bold transition-colors ${dayActive ? "bg-violet/20 text-violet border border-violet/30" : "bg-white/[0.02] text-white/20 border border-white/8 hover:text-white/40"}`}>
+                                {dl[0]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button onClick={() => removeTimeRule(rule.id)} className="p-1 text-white/25 hover:text-red-400 transition-colors">
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── Calendar exceptions ── */}
+            <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.03] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5"><Calendar size={12} /> Exceptions calendrier</div>
+                  <div className="text-[10px] text-white/30">Jours fériés ou événements prioritaires qui override le planning</div>
+                </div>
+                <button onClick={addException} className="text-[10px] px-2.5 py-1 rounded-lg border border-amber-500/25 text-amber-400 hover:text-white hover:bg-amber-500/15 font-bold transition-colors">+ Exception</button>
+              </div>
+              {exceptions.length === 0 ? (
+                <div className="text-[11px] text-white/25 italic">Aucune exception configurée.</div>
+              ) : (
+                <div className="space-y-2">
+                  {exceptions.map(exc => (
+                    <div key={exc.id} className="rounded-lg border border-white/8 bg-black/20 p-3 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input type="date" value={exc.date || ""} onChange={e => updateException(exc.id, { date: e.target.value })} className="rounded-lg bg-white/[0.03] border border-white/10 px-2 py-1.5 text-[11px] text-white" />
+                        <input placeholder="Label (ex: Jour férié)" value={exc.label || ""} onChange={e => updateException(exc.id, { label: e.target.value })} className="flex-1 rounded-lg bg-white/[0.03] border border-white/10 px-2 py-1.5 text-[11px] text-white placeholder-white/20" />
+                        <select value={exc.type || "holiday"} onChange={e => updateException(exc.id, { type: e.target.value })} className="rounded-lg bg-white/[0.03] border border-white/10 px-2 py-1.5 text-[11px] text-white [&>option]:bg-[#141414]">
+                          <option value="holiday">🏖️ Férié</option>
+                          <option value="event">🎯 Événement</option>
+                        </select>
+                        <button onClick={() => removeException(exc.id)} className="p-1 text-white/25 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                      </div>
+                      {exc.type === "event" && (
+                        <div>
+                          <div className="text-[9px] text-white/30 uppercase tracking-widest mb-1.5">Widgets prioritaires ce jour</div>
+                          <div className="flex flex-wrap gap-1">
+                            {widgets.map(w => {
+                              const isIn = (exc.widgetIds || []).includes(w.id);
+                              const meta = TYPE_META[w.type] ?? { Icon: Sparkles, color: "text-white/40" };
+                              const Icon = meta.Icon;
+                              return (
+                                <button key={w.id} onClick={() => toggleExceptionWidget(exc.id, w.id)}
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-medium transition-all border ${isIn ? "bg-amber-500/10 border-amber-500/25 text-amber-300" : "bg-white/[0.02] border-white/6 text-white/25 hover:text-white/40"}`}>
+                                  <Icon size={9} strokeWidth={2} />
+                                  <span className="truncate max-w-[80px]">{w.title}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {exc.type === "holiday" && (
+                        <div className="text-[10px] text-amber-400/50 italic">Aucun widget ne sera affiché ce jour.</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </FieldGroup>
+
+      <Divider />
+
+      <FieldGroup eyebrow="Génération auto contenu">
+        <label className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.015] px-5 py-3.5 cursor-pointer hover:border-white/20 transition-colors">
+          <div>
+            <div className="text-sm font-semibold text-white">Activer la génération automatique</div>
+            <div className="text-[11px] text-white/45 mt-0.5">Quote / mot du jour / puzzle / wordle via provider IA.</div>
+          </div>
+          <div
+            onClick={(e) => { e.preventDefault(); updateAutoContent({ ...autoContent, enabled: !autoContent.enabled }); }}
+            className={`relative h-6 w-11 rounded-full transition-colors shrink-0 ${autoContent.enabled ? "bg-violet" : "bg-black border border-white/15"}`}
+          >
+            <div className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${autoContent.enabled ? "translate-x-5" : "translate-x-0.5"}`} />
+          </div>
+        </label>
+        {autoContent.enabled && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Provider" value={autoContent.provider || "groq"} onChange={(e) => updateAutoContent({ ...autoContent, provider: e.target.value })} />
+              <Input label="Heure de refresh (0-23)" type="number" min={0} max={23} value={autoContent.refreshHour ?? 6} onChange={(e) => updateAutoContent({ ...autoContent, refreshHour: Number(e.target.value) || 6 })} />
+            </div>
+            <button
+              disabled={generating}
+              onClick={async () => {
+                setGenerating(true);
+                setGenResult(null);
+                try {
+                  const res = await fetch("/api/automation/content?force=1", { method: "POST" });
+                  const json = await res.json();
+                  setGenResult(json.ok ? (json.skipped ? "skipped" : "success") : "error");
+                } catch { setGenResult("error"); }
+                setGenerating(false);
+                setTimeout(() => setGenResult(null), 4000);
+              }}
+              className={`w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all border flex items-center justify-center gap-2 ${
+                genResult === "success" ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" :
+                genResult === "skipped" ? "bg-amber-500/10 border-amber-500/25 text-amber-400" :
+                genResult === "error" ? "bg-red-500/10 border-red-500/25 text-red-400" :
+                "bg-violet/10 border-violet/30 text-violet hover:bg-violet/20"
+              }`}
+            >
+              {generating ? (
+                <><RefreshCw size={13} className="animate-spin" /> Génération en cours...</>
+              ) : genResult === "success" ? (
+                <><Check size={13} /> Contenu généré avec succès</>
+              ) : genResult === "skipped" ? (
+                <><ClockIcon size={13} /> Déjà généré aujourd'hui</>
+              ) : genResult === "error" ? (
+                <><AlertTriangle size={13} /> Erreur de génération</>
+              ) : (
+                <><Sparkles size={13} /> Lancer la génération maintenant</>
+              )}
+            </button>
+          </div>
+        )}
+      </FieldGroup>
+
+      <Divider />
+
       <FieldGroup eyebrow="Presets de Séquences">
         <div className="flex gap-2">
           <button onClick={() => onLoadPreset("debut-semaine", "Début de semaine")}
@@ -991,6 +1572,42 @@ function GlobalSettingsPanel({ settings, onChange, onReset, onLoadPreset }) {
             <div className="text-left min-w-0">
               <div className="text-xs font-bold text-white truncate">Par défaut</div>
               <div className="text-[10px] text-white/40 truncate">Widgets usine</div>
+            </div>
+          </button>
+        </div>
+        <div className="flex gap-2 mt-2">
+          <button onClick={() => onLoadPreset("monitoring-reseau", "Monitoring réseau")}
+            className="flex-1 flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/10 hover:bg-violet/10 hover:border-violet/40 transition-colors group">
+            <Activity size={15} className="text-emerald-400 shrink-0" strokeWidth={1.8} />
+            <div className="text-left min-w-0">
+              <div className="text-xs font-bold text-white truncate">Monitoring réseau</div>
+              <div className="text-[10px] text-white/40 truncate">Status, uptime, qualité WAN</div>
+            </div>
+          </button>
+          <button onClick={() => onLoadPreset("auto-campus-live", "Campus auto live")}
+            className="flex-1 flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/10 hover:bg-violet/10 hover:border-violet/40 transition-colors group">
+            <Sparkles size={15} className="text-blue-300 shrink-0" strokeWidth={1.8} />
+            <div className="text-left min-w-0">
+              <div className="text-xs font-bold text-white truncate">Campus auto live</div>
+              <div className="text-[10px] text-white/40 truncate">100% auto (hub/météo/trafic)</div>
+            </div>
+          </button>
+        </div>
+        <div className="flex gap-2 mt-2">
+          <button onClick={() => onLoadPreset("salles-libres", "Salles libres campus")}
+            className="flex-1 flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/10 hover:bg-cyan-500/10 hover:border-cyan-500/40 transition-colors group">
+            <LayoutGrid size={15} className="text-cyan-400 shrink-0" strokeWidth={1.8} />
+            <div className="text-left min-w-0">
+              <div className="text-xs font-bold text-white truncate">Salles libres</div>
+              <div className="text-[10px] text-white/40 truncate">Carte + trafic + météo</div>
+            </div>
+          </button>
+          <button onClick={() => onLoadPreset("bde-matin", "Matin BDE")}
+            className="flex-1 flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/10 hover:bg-orange-500/10 hover:border-orange-500/40 transition-colors group">
+            <BookOpen size={15} className="text-orange-400 shrink-0" strokeWidth={1.8} />
+            <div className="text-left min-w-0">
+              <div className="text-xs font-bold text-white truncate">Matin BDE</div>
+              <div className="text-[10px] text-white/40 truncate">Vie étudiante & sondage</div>
             </div>
           </button>
         </div>
@@ -1627,7 +2244,44 @@ function WidgetDataEditor({ widget, onChange }) {
         <Input label="Latitude" type="number" value={data.lat ?? ""} onChange={e => onChange({ lat: Number(e.target.value) || 0 })} hint="Paris ≈ 48.8566" />
         <Input label="Longitude" type="number" value={data.lon ?? ""} onChange={e => onChange({ lon: Number(e.target.value) || 0 })} hint="Paris ≈ 2.3522" />
       </div>
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+        <div className="text-[11px] font-medium uppercase tracking-widest text-white/60">Prochain evenement (override Hub)</div>
+        <Input
+          label="Titre de l'evenement"
+          value={data.nextEvent?.name ?? ""}
+          onChange={e => onChange({ nextEvent: { ...(data.nextEvent || {}), name: e.target.value } })}
+          placeholder="Laisser vide pour utiliser automatiquement les widgets Evenement"
+        />
+        <Input
+          label="Date et heure"
+          type="datetime-local"
+          value={data.nextEvent?.date ? new Date(data.nextEvent.date).toISOString().slice(0, 16) : ""}
+          onChange={e => onChange({
+            nextEvent: {
+              ...(data.nextEvent || {}),
+              date: e.target.value ? new Date(e.target.value).toISOString() : "",
+            },
+          })}
+        />
+        <Input
+          label="Lieu (optionnel)"
+          value={data.nextEvent?.location ?? ""}
+          onChange={e => onChange({ nextEvent: { ...(data.nextEvent || {}), location: e.target.value } })}
+          placeholder="Campus PST&B - Paris"
+        />
+      </div>
     </>
+  );
+
+  if (type === "network-status") return (
+    <div className="space-y-2">
+      <p className="text-sm text-white/45">
+        Widget de supervision automatique du réseau campus.
+      </p>
+      <p className="text-xs text-white/40">
+        Configure `NETWORK_PUBLIC_URL` et `NETWORK_WIFI_IP` dans `.env.local` (et Vercel) pour activer les checks HTTP/TCP.
+      </p>
+    </div>
   );
 
   return <p className="text-sm text-white/45">Pas d'éditeur pour ce type.</p>;

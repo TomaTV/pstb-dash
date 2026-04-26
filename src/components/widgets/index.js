@@ -20,6 +20,8 @@ import CryptoWidget from "./CryptoWidget";
 import CountdownWidget from "./CountdownWidget";
 import GithubTrendingWidget from "./GithubTrendingWidget";
 import HubWidget from "./HubWidget";
+import NetworkStatusWidget from "./NetworkStatusWidget";
+import CampusMapWidget from "./CampusMapWidget";
 
 export const WIDGET_COMPONENTS = {
   "next-event": NextEventWidget,
@@ -44,6 +46,8 @@ export const WIDGET_COMPONENTS = {
   countdown: CountdownWidget,
   "github-trending": GithubTrendingWidget,
   hub: HubWidget,
+  "network-status": NetworkStatusWidget,
+  "campus-map": CampusMapWidget,
 };
 
 export function renderWidget(widget, mode) {
