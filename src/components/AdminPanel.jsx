@@ -10,8 +10,9 @@ import {
   Calendar, BarChart3, Clock as ClockIcon, Newspaper, Sparkles, FileText,
   Quote as QuoteIcon, Sun, Share2, Brain, TrendingDown, Images, PartyPopper,
   X as XIcon, BookOpen, Gamepad2, Train, Briefcase, Radio, AlertTriangle, LogOut,
-  Activity, Wifi, WifiOff, RefreshCw, Save, UserPlus
+  Activity, Wifi, WifiOff, RefreshCw, Save, UserPlus, QrCode, Users, Download, Copy, Key
 } from "lucide-react";
+import QRCode from "react-qr-code";
 import { useDashboard } from "@/context/DashboardContext";
 import { Card, CardHeader, CardBody, CardTitle } from "@/components/ui/Card";
 import { Input, Textarea } from "@/components/ui/Input";
@@ -181,7 +182,7 @@ export default function AdminPanel() {
 
       <main className="relative z-10 h-screen mx-auto w-full max-w-[1640px] px-4 lg:px-8 py-4 flex flex-col overflow-hidden">
         {/* ── Header ── */}
-        <header className="flex items-center justify-between pb-4 mb-4 gap-4 border-b border-white/8 shrink-0">
+        <header className="flex items-center justify-between bg-[#13131A]/80 border border-white/10 backdrop-blur-xl rounded-2xl px-6 py-4 mb-6 shrink-0 shadow-lg">
           <div className="flex items-center gap-4">
             <Link href="/" className="p-2 rounded-full hover:bg-white/8 transition-colors" title="Retour">
               <ArrowLeft size={16} />
@@ -258,8 +259,8 @@ export default function AdminPanel() {
         <div className="flex flex-col lg:flex-row gap-5 flex-1 min-h-0 overflow-hidden">
 
           {/* ═══ LEFT SIDEBAR ═══ */}
-          <aside className="w-full lg:w-[320px] shrink-0 flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-1 pb-4">
-            <div className="flex items-center justify-between px-1 mb-1">
+          <aside className="w-full lg:w-[320px] shrink-0 flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-2 pb-4">
+            <div className="flex items-center justify-between px-2 mb-2">
               <div className="text-[10px] font-bold uppercase tracking-widest text-white/45 flex items-center gap-2">
                 <span>{settings.viewMode === "scene" ? "Séquence Principale" : "Liste des widgets"}</span>
                 <span className="bg-white/10 px-2 py-0.5 rounded text-white/60 font-mono">{widgets.filter(w => w.status !== "pending").length}</span>
@@ -324,7 +325,7 @@ export default function AdminPanel() {
           </aside>
 
           {/* ═══ RIGHT PANEL ═══ */}
-          <section className="flex-1 min-w-0 bg-white/[0.015] border border-white/8 rounded-2xl p-5 lg:p-7 overflow-y-auto custom-scrollbar flex flex-col relative">
+          <section className="flex-1 min-w-0 bg-white/[0.02] backdrop-blur-2xl border border-white/10 rounded-3xl p-6 lg:p-8 overflow-y-auto custom-scrollbar flex flex-col relative shadow-[0_0_40px_rgba(0,0,0,0.2)]">
             {selectedId === "analytics" ? (
               <AnalyticsPanel widgets={widgets} settings={settings} />
             ) : selectedId === "settings" ? (
@@ -551,8 +552,8 @@ function SortableRow({ widget, index, selected, onSelect, onToggleActive, onDele
       ref={setNodeRef}
       style={style}
       className={[
-        "group relative flex items-stretch rounded-xl border transition-colors overflow-hidden",
-        selected ? "border-violet/60 bg-violet/10 ring-1 ring-violet/30" : "border-white/5 bg-white/[0.015] hover:border-white/15 hover:bg-white/[0.03]",
+        "group relative flex items-stretch rounded-xl border transition-all duration-200 overflow-hidden shadow-sm",
+        selected ? "border-violet-500/50 bg-violet-500/10 shadow-[0_0_20px_rgba(101,31,255,0.15)]" : "border-white/10 bg-[#13131A] hover:border-white/20 hover:bg-[#1a1a24]",
         !widget.focusable && "opacity-50",
       ].filter(Boolean).join(" ")}
     >
@@ -639,10 +640,10 @@ function EditorPanel({ widget, onChange, onChangeData }) {
   };
 
   return (
-    <div className="space-y-5 pb-12 relative">
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-violet/10 border border-violet/25">
-          <Icon size={18} className={meta.color} strokeWidth={2} />
+    <div className="space-y-6 pb-12 relative">
+      <div className="flex items-center gap-4">
+        <div className="p-3 rounded-2xl bg-violet/10 border border-violet/20 shadow-inner">
+          <Icon size={24} className={meta.color} strokeWidth={2} />
         </div>
         <div>
           <div className="text-[9px] font-bold uppercase tracking-[0.35em] text-violet mb-0.5">{meta.label}</div>
@@ -686,9 +687,9 @@ function EditorPanel({ widget, onChange, onChangeData }) {
         <button
           onClick={handleSave}
           title="Sauvegarder les modifications"
-          className="p-2.5 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 transition-colors shadow-[0_0_15px_rgba(16,185,129,0.3)] flex items-center justify-center animate-in fade-in zoom-in-95 group"
+          className="px-6 py-2.5 rounded-full bg-emerald-500 text-white font-black uppercase tracking-wider text-xs hover:bg-emerald-400 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center gap-2 animate-in fade-in zoom-in-95"
         >
-          <Save size={18} strokeWidth={2} />
+          <Save size={16} strokeWidth={2.5} /> Enregistrer les modifications
         </button>,
         document.getElementById("admin-save-action")
       )}
@@ -698,9 +699,9 @@ function EditorPanel({ widget, onChange, onChangeData }) {
 
 function FieldGroup({ eyebrow, children }) {
   return (
-    <div>
-      {eyebrow && <div className="text-[9px] font-bold uppercase tracking-[0.35em] text-violet mb-3">{eyebrow}</div>}
-      <div className="space-y-3">{children}</div>
+    <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-6">
+      {eyebrow && <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-violet-400 mb-5">{eyebrow}</div>}
+      <div className="space-y-4">{children}</div>
     </div>
   );
 }
@@ -2605,10 +2606,152 @@ function TransportDisruptionsEditor({ data, onChange }) {
 /* =====================================
    ANALYTICS PANEL
 ====================================== */
+function QrGenerator({ widgets }) {
+  const [selectedWidget, setSelectedWidget] = useState(null);
+  const [customUrl, setCustomUrl] = useState("");
+  const [label, setLabel] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+  const targetUrl = selectedWidget
+    ? (() => {
+        const w = widgets.find((x) => x.id === selectedWidget);
+        // Default tracked URL per widget type
+        const dest = w?.type === "wordle" ? `${baseUrl}/jeu`
+          : w?.type === "jobs" ? `${baseUrl}/etudiants`
+          : w?.type === "poll" ? `${baseUrl}/vote`
+          : customUrl || baseUrl;
+        return dest;
+      })()
+    : customUrl;
+
+  const trackingUrl = targetUrl && selectedWidget
+    ? `${baseUrl}/api/track?w=${selectedWidget}&url=${encodeURIComponent(targetUrl)}`
+    : targetUrl
+    ? `${baseUrl}/api/track?url=${encodeURIComponent(targetUrl)}`
+    : null;
+
+  const handleCopy = () => {
+    if (!trackingUrl) return;
+    navigator.clipboard.writeText(trackingUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadSvg = () => {
+    const svg = document.getElementById("qr-preview");
+    if (!svg) return;
+    const blob = new Blob([svg.outerHTML], { type: "image/svg+xml" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `qr-${label || selectedWidget || "pstb"}.svg`;
+    a.click();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-6">
+        <QrCode size={16} className="text-violet" />
+        <span className="text-[10px] font-bold uppercase tracking-widest text-white/35">Générateur de QR Code</span>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Config */}
+        <div className="space-y-4">
+          <div>
+            <label className="text-[10px] uppercase tracking-widest text-white/40 block mb-2">Widget lié (optionnel)</label>
+            <select
+              value={selectedWidget || ""}
+              onChange={(e) => setSelectedWidget(e.target.value || null)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-violet/50"
+            >
+              <option value="">— Aucun widget (URL libre) —</option>
+              {widgets.map((w) => (
+                <option key={w.id} value={w.id}>{w.title} ({w.type})</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase tracking-widest text-white/40 block mb-2">URL de destination</label>
+            <input
+              type="url"
+              value={selectedWidget
+                ? (() => {
+                    const w = widgets.find((x) => x.id === selectedWidget);
+                    return w?.type === "wordle" ? `${baseUrl}/jeu`
+                      : w?.type === "jobs" ? `${baseUrl}/etudiants`
+                      : w?.type === "poll" ? `${baseUrl}/vote`
+                      : customUrl || baseUrl;
+                  })()
+                : customUrl}
+              onChange={(e) => { setCustomUrl(e.target.value); setSelectedWidget(null); }}
+              placeholder="https://..."
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-violet/50"
+            />
+          </div>
+
+          <div>
+            <label className="text-[10px] uppercase tracking-widest text-white/40 block mb-2">Label (pour le nom du fichier)</label>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="ex: wordle-salle-b"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-violet/50"
+            />
+          </div>
+
+          {trackingUrl && (
+            <div className="rounded-xl bg-white/[0.03] border border-white/8 p-4">
+              <div className="text-[10px] uppercase tracking-widest text-white/30 mb-2">URL de tracking générée</div>
+              <div className="text-xs font-mono text-violet break-all">{trackingUrl}</div>
+              <button
+                onClick={handleCopy}
+                className="mt-3 flex items-center gap-1.5 text-xs text-white/50 hover:text-white transition-colors"
+              >
+                {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                {copied ? "Copié !" : "Copier l’URL"}
+              </button>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              onClick={handleDownloadSvg}
+              disabled={!trackingUrl}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-violet/20 text-violet text-sm font-semibold hover:bg-violet/30 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <Download size={14} /> Télécharger SVG
+            </button>
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div className="flex flex-col items-center justify-center gap-4">
+          {trackingUrl ? (
+            <div className="p-6 bg-white rounded-2xl shadow-xl">
+              <QRCode id="qr-preview" value={trackingUrl} size={180} />
+            </div>
+          ) : (
+            <div className="w-[220px] h-[220px] rounded-2xl border-2 border-dashed border-white/10 flex items-center justify-center">
+              <QrCode size={48} className="text-white/10" />
+            </div>
+          )}
+          {label && <div className="text-sm text-white/50 font-medium">{label}</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AnalyticsPanel({ widgets, settings }) {
   const [sseStatus, setSseStatus] = useState("checking");
   const [lastPing, setLastPing] = useState(null);
   const [uptime, setUptime] = useState(0);
+  const [analytics, setAnalytics] = useState({ students: [], stats: { scans: {}, events: [] } });
+  const [showPins, setShowPins] = useState(false);
 
   useEffect(() => {
     const start = Date.now();
@@ -2624,9 +2767,19 @@ function AnalyticsPanel({ widgets, settings }) {
     return () => es.close();
   }, []);
 
+  useEffect(() => {
+    fetch("/api/analytics")
+      .then(res => res.json())
+      .then(data => { if (!data.error) setAnalytics(data); })
+      .catch(err => console.error("Failed to load analytics", err));
+  }, []);
+
   const activeWidgets = widgets.filter(w => w.focusable && w.status !== "pending");
   const pendingWidgets = widgets.filter(w => w.status === "pending");
   const typeCounts = activeWidgets.reduce((acc, w) => ({ ...acc, [w.type]: (acc[w.type] || 0) + 1 }), {});
+
+  const totalScans = Object.values(analytics.stats?.scans || {}).reduce((s, v) => s + v, 0);
+  const totalEvents = (analytics.stats?.events || []).length;
 
   const fmtUptime = (s) => {
     const m = Math.floor(s / 60);
@@ -2644,7 +2797,7 @@ function AnalyticsPanel({ widgets, settings }) {
         <p className="text-sm text-white/40 mt-1">Vue temps réel de l’état du dashboard.</p>
       </div>
 
-      {/* Status cards */}
+      {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-5">
           <div className="text-[10px] uppercase tracking-widest text-white/35 mb-2">Widgets actifs</div>
@@ -2652,14 +2805,14 @@ function AnalyticsPanel({ widgets, settings }) {
           <div className="text-xs text-white/35 mt-1">/ {widgets.length} total</div>
         </div>
         <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-5">
-          <div className="text-[10px] uppercase tracking-widest text-white/35 mb-2">En attente</div>
-          <div className={`text-4xl font-black ${pendingWidgets.length > 0 ? "text-amber-400" : "text-white"}`}>{pendingWidgets.length}</div>
-          <div className="text-xs text-white/35 mt-1">soumissions BDE</div>
+          <div className="text-[10px] uppercase tracking-widest text-white/35 mb-2">Étudiants inscrits</div>
+          <div className="text-4xl font-black text-emerald-400">{analytics.students.length}</div>
+          <div className="text-xs text-white/35 mt-1">comptes PST&B</div>
         </div>
         <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-5">
-          <div className="text-[10px] uppercase tracking-widest text-white/35 mb-2">Mode vue</div>
-          <div className="text-2xl font-black text-white capitalize">{settings.viewMode}</div>
-          <div className="text-xs text-white/35 mt-1">{settings.rotateInterval}s par widget</div>
+          <div className="text-[10px] uppercase tracking-widest text-white/35 mb-2">Scans QR Code</div>
+          <div className="text-4xl font-black text-violet">{totalScans}</div>
+          <div className="text-xs text-white/35 mt-1">{totalEvents} avec session</div>
         </div>
         <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-5">
           <div className="text-[10px] uppercase tracking-widest text-white/35 mb-2">Session admin</div>
@@ -2742,6 +2895,105 @@ function AnalyticsPanel({ widgets, settings }) {
         <div className="mt-3 text-xs text-white/25 font-mono">
           Cycle total ≈ {activeWidgets.reduce((sum, w) => sum + (w.duration || settings.rotateInterval || 15), 0)}s
         </div>
+      </div>
+
+      <Divider />
+
+      {/* QR Code Generator */}
+      <QrGenerator widgets={widgets} />
+
+      <Divider />
+
+      {/* Scans Analytics */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <QrCode size={16} className="text-violet" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-white/35">Scans de QR Codes par Widget</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          {Object.keys(analytics.stats?.scans || {}).length === 0 ? (
+            <div className="text-sm text-white/40 italic">Aucun scan enregistré pour le moment.</div>
+          ) : (
+            Object.entries(analytics.stats.scans).sort((a, b) => b[1] - a[1]).map(([widgetId, count]) => {
+              const w = widgets.find(x => x.id === widgetId);
+              const wName = w ? w.title : `Widget inconnu (${widgetId.slice(0, 6)})`;
+              return (
+                <div key={widgetId} className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between">
+                  <div className="truncate pr-3">
+                    <div className="text-sm font-semibold text-white truncate">{wName}</div>
+                    <div className="text-[10px] uppercase text-white/30">{w?.type || "Inconnu"}</div>
+                  </div>
+                  <div className="text-2xl font-black text-violet">{count}</div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <Divider />
+
+      {/* Students Directory */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Users size={16} className="text-emerald-400" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/35">Étudiants Inscrits</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowPins((v) => !v)}
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${showPins ? "bg-amber-500/20 border-amber-500/30 text-amber-400" : "border-white/10 text-white/40 hover:text-white"}`}
+            >
+              <Key size={11} /> {showPins ? "Masquer PINs" : "Afficher PINs"}
+            </button>
+            <div className="text-xs font-bold bg-emerald-500/10 text-emerald-400 px-3 py-1 rounded-full">
+              {analytics.students.length} inscrits
+            </div>
+          </div>
+        </div>
+        {analytics.students.length === 0 ? (
+          <div className="text-sm text-white/40 italic">Aucun étudiant inscrit pour le moment.</div>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-black/40 border-b border-white/10">
+                <tr>
+                  <th className="px-4 py-3 font-semibold text-white/40 uppercase tracking-widest text-[10px]">Nom</th>
+                  <th className="px-4 py-3 font-semibold text-white/40 uppercase tracking-widest text-[10px]">Email</th>
+                  {showPins && <th className="px-4 py-3 font-semibold text-amber-400/60 uppercase tracking-widest text-[10px]">PIN</th>}
+                  <th className="px-4 py-3 font-semibold text-white/40 uppercase tracking-widest text-[10px]">Inscription</th>
+                  <th className="px-4 py-3 font-semibold text-white/40 uppercase tracking-widest text-[10px]">Scans</th>
+                  <th className="px-4 py-3 font-semibold text-white/40 uppercase tracking-widest text-[10px]">Dernier scan</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {analytics.students.map((stu, i) => (
+                  <tr key={i} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="px-4 py-3 font-medium text-white">{stu.firstName} {stu.lastName}</td>
+                    <td className="px-4 py-3 text-white/50">{stu.email}</td>
+                    {showPins && (
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-sm font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded">{stu.pin}</span>
+                      </td>
+                    )}
+                    <td className="px-4 py-3 text-white/50">{stu.createdAt ? new Date(stu.createdAt).toLocaleDateString("fr-FR") : "N/A"}</td>
+                    <td className="px-4 py-3">
+                      {stu.scanCount > 0 ? (
+                        <span className="text-violet font-bold">{stu.scanCount}</span>
+                      ) : (
+                        <span className="text-white/20">0</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-white/40 text-xs">
+                      {stu.lastScan ? new Date(stu.lastScan).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

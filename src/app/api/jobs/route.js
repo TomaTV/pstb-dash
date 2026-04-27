@@ -8,12 +8,12 @@ const APP_ID = process.env.ADZUNA_APP_ID ?? "";
 const APP_KEY = process.env.ADZUNA_APP_KEY ?? "";
 
 const SEARCHES = [
-  { query: "alternance développeur", category: "it-jobs", count: 4 },
-  { query: "alternance data", category: "it-jobs", count: 3 },
-  { query: "alternance cybersécurité", category: "it-jobs", count: 2 },
-  { query: "alternance marketing", count: 4 },
-  { query: "alternance communication digitale", count: 3 },
-  { query: "alternance commerce", count: 2 },
+  { query: "alternance développeur", category: "it-jobs", count: 15 },
+  { query: "alternance data", category: "it-jobs", count: 10 },
+  { query: "alternance cybersécurité", category: "it-jobs", count: 10 },
+  { query: "alternance marketing", count: 15 },
+  { query: "alternance communication digitale", count: 10 },
+  { query: "alternance commerce", count: 10 },
 ];
 
 export async function GET(req) {

@@ -174,23 +174,35 @@ const COL_HEADS_STOCKS = (
   </div>
 );
 
+let cachedCrypto = { coins: [], stocks: [], time: 0 };
+
 export default function CryptoWidget({ widget, mode = "grid" }) {
   const { focusWidget } = useDashboard();
-  const [coins, setCoins] = useState([]);
-  const [stocks, setStocks] = useState([]);
-  const [updatedAt, setUpdatedAt] = useState(null);
+  const [coins, setCoins] = useState(cachedCrypto.coins);
+  const [stocks, setStocks] = useState(cachedCrypto.stocks);
+  const [updatedAt, setUpdatedAt] = useState(cachedCrypto.time ? new Date(cachedCrypto.time) : null);
   const [tab, setTab] = useState("crypto"); // "crypto" | "stocks" — auto-rotated
 
   useEffect(() => {
     let on = true;
     const load = async () => {
+      if (cachedCrypto.time && Date.now() - cachedCrypto.time < 60_000) {
+        if (on) {
+          setCoins(cachedCrypto.coins);
+          setStocks(cachedCrypto.stocks);
+          setUpdatedAt(new Date(cachedCrypto.time));
+        }
+        return;
+      }
       try {
         const res = await fetch("/api/crypto", { cache: "no-store" });
         const json = await res.json();
         if (on) {
-          if (json.coins?.length) setCoins(json.coins);
-          if (json.stocks?.length) setStocks(json.stocks);
-          setUpdatedAt(new Date());
+          if (json.coins?.length) { setCoins(json.coins); cachedCrypto.coins = json.coins; }
+          if (json.stocks?.length) { setStocks(json.stocks); cachedCrypto.stocks = json.stocks; }
+          const now = new Date();
+          setUpdatedAt(now);
+          cachedCrypto.time = now.getTime();
         }
       } catch (e) {
         console.error("[CryptoWidget]", e);

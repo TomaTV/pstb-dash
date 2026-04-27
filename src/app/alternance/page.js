@@ -46,7 +46,7 @@ function OfferCard({ offer, index }) {
 
   return (
     <div
-      className="group relative rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-white/[0.01] hover:border-white/[0.14] hover:from-white/[0.06] hover:to-white/[0.02] transition-all duration-300 overflow-hidden flex flex-col"
+      className="group relative rounded-2xl border border-white/[0.1] bg-[#0f0f15] hover:bg-[#14141c] hover:border-violet/30 transition-all duration-300 overflow-hidden flex flex-col shadow-lg"
       style={{ animationDelay: `${index * 30}ms` }}
     >
       {/* Top accent bar */}
@@ -84,15 +84,15 @@ function OfferCard({ offer, index }) {
             <h3 className="text-[15px] font-bold text-white leading-snug group-hover:text-violet transition-colors duration-200 line-clamp-2">
               {offer.title}
             </h3>
-            <div className="flex items-center gap-1.5 mt-1.5 text-[12px] font-semibold text-violet/80">
-              <Building2 size={11} />
+            <div className="flex items-center gap-1.5 mt-1.5 text-[12px] font-semibold text-white/90 group-hover:text-white transition-colors">
+              <Building2 size={11} className="text-violet-400" />
               <span className="truncate">{offer.company}</span>
             </div>
           </div>
         </div>
 
         {/* Meta info */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-white/40 font-medium">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-white/70 font-medium">
           <span className="flex items-center gap-1">
             <MapPin size={10} />
             {offer.location ?? "Paris"}
@@ -102,7 +102,7 @@ function OfferCard({ offer, index }) {
             Alternance
           </span>
           {offer.salary && (
-            <span className="text-emerald-400/80 font-semibold">
+            <span className="text-emerald-400 font-semibold">
               {offer.salary}
             </span>
           )}
@@ -116,30 +116,33 @@ function OfferCard({ offer, index }) {
 
         {/* Description */}
         {offer.description && (
-          <p className="text-[11.5px] text-white/30 leading-relaxed line-clamp-2 flex-1">
+          <p className="text-[11.5px] text-white/80 leading-relaxed line-clamp-2 flex-1">
             {offer.description}
           </p>
         )}
 
         {/* Source badge */}
-        <div className="text-[9px] uppercase tracking-[0.2em] text-white/20 font-bold border-t border-white/[0.04] pt-3 flex items-center gap-1.5">
+        <div className="text-[9px] uppercase tracking-[0.2em] text-white/50 font-bold border-t border-white/[0.08] pt-3 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />
           Source : Adzuna
         </div>
       </div>
 
-      {/* QR Code footer */}
-      <div className="border-t border-white/[0.06] px-5 py-4 bg-white/[0.02] flex items-center justify-between gap-4">
-        <div>
-          <p className="text-[9px] uppercase tracking-[0.2em] text-white/30 font-bold mb-0.5">
-            Scanner pour postuler
-          </p>
-          <p className="text-[10px] text-white/20 truncate max-w-[140px]">
-            {qrUrl.replace(/^https?:\/\//, "").slice(0, 35)}…
-          </p>
+      {/* Footer: Action */}
+      <div className="border-t border-white/[0.06] p-4 bg-[#0a0a0f] flex items-center justify-between gap-4">
+        <div className="flex-1">
+          <a
+            href={qrUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-violet/20 hover:bg-violet/30 text-white font-bold text-xs transition-colors border border-violet/30"
+          >
+            Voir l'offre
+            <ExternalLink size={14} />
+          </a>
         </div>
-        <div className="shrink-0 bg-white p-2 rounded-xl shadow-lg shadow-black/40">
-          <QRCode value={qrUrl} size={64} />
+        <div className="shrink-0 bg-white p-1.5 rounded-lg shadow-lg shadow-black/40" title="Scanner avec un mobile">
+          <QRCode value={qrUrl} size={48} />
         </div>
       </div>
     </div>
@@ -195,7 +198,30 @@ export default function AlternancePage() {
   }, [refreshKey]);
 
   const filtered = useMemo(() => {
-    let list = offers;
+    let list = offers.filter((o) => {
+      const company = (o.company || "").toLowerCase();
+      const title = (o.title || "").toLowerCase();
+      const desc = (o.description || "").toLowerCase();
+      
+      const isSchool = 
+        company.includes("iscod") || 
+        company.includes("alegria") || 
+        company.includes("openclassrooms") || 
+        company.includes("my digital school") || 
+        company.includes("epitech") ||
+        company.includes("aurlom") ||
+        company.includes("dsti") ||
+        company.includes("school") ||
+        company.includes("école") ||
+        company.includes("ecole") ||
+        company.includes("campus") ||
+        company.includes("formation");
+        
+      const isFormation = title.includes("formation") || title.includes("école") || title.includes("ecole");
+      
+      return !isSchool && !isFormation;
+    });
+
     if (category !== "all") list = list.filter((o) => o.category === category);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -220,7 +246,7 @@ export default function AlternancePage() {
   const mktCount = offers.filter((o) => o.category === "marketing").length;
 
   return (
-    <div className="min-h-screen bg-[#060608] text-white font-sans">
+    <div className="h-screen overflow-y-auto custom-scrollbar bg-[#060608] text-white font-sans">
       {/* Background glow */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute -top-40 left-1/4 w-[700px] h-[700px] rounded-full bg-violet/[0.07] blur-[120px]" />
@@ -251,22 +277,22 @@ export default function AlternancePage() {
               <div className="flex items-center gap-3 flex-wrap">
                 {!loading && (
                   <>
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-white/50 bg-white/[0.04] border border-white/[0.07] px-3 py-1.5 rounded-full">
-                      <span className="w-1.5 h-1.5 rounded-full bg-violet" />
+                    <div className="flex items-center gap-1.5 text-[12px] font-bold text-white/80 bg-white/[0.06] border border-white/[0.1] px-3 py-1.5 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
                       {techCount} Tech
                     </div>
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-white/50 bg-white/[0.04] border border-white/[0.07] px-3 py-1.5 rounded-full">
+                    <div className="flex items-center gap-1.5 text-[12px] font-bold text-white/80 bg-white/[0.06] border border-white/[0.1] px-3 py-1.5 rounded-full">
                       <span className="w-1.5 h-1.5 rounded-full bg-pink-400" />
                       {mktCount} Marketing
                     </div>
-                    <div className="text-[11px] font-bold text-violet bg-violet/10 border border-violet/20 px-3 py-1.5 rounded-full">
+                    <div className="text-[12px] font-bold text-violet-300 bg-violet/20 border border-violet/30 px-3 py-1.5 rounded-full">
                       {offers.length} offres au total
                     </div>
                   </>
                 )}
                 <button
                   onClick={() => setRefreshKey((k) => k + 1)}
-                  className="p-2 rounded-xl bg-white/[0.04] border border-white/[0.07] text-white/40 hover:text-white hover:bg-white/[0.08] transition-colors"
+                  className="p-2 rounded-xl bg-white/[0.06] border border-white/[0.1] text-white/60 hover:text-white hover:bg-white/[0.1] transition-colors"
                   title="Rafraîchir"
                 >
                   <RefreshCw size={14} />
@@ -379,12 +405,12 @@ export default function AlternancePage() {
                 </div>
               ) : (
                 <>
-                  <p className="text-[11px] text-white/25 font-medium mb-5">
+                  <p className="text-[13px] text-white/60 font-semibold mb-5 pl-1">
                     {filtered.length} offre{filtered.length > 1 ? "s" : ""}{" "}
                     affichée{filtered.length > 1 ? "s" : ""}
                     {search && ` · "${search}"`}
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {filtered.map((offer, i) => (
                       <OfferCard key={i} offer={offer} index={i} />
                     ))}

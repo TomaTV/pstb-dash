@@ -69,17 +69,27 @@ function RepoRow({ repo, rank, big = false }) {
   );
 }
 
+let cachedTrending = { repos: [], time: 0 };
+
 export default function CodeTrendingWidget({ widget, mode = "grid" }) {
   const { focusWidget } = useDashboard();
-  const [repos, setRepos] = useState([]);
+  const [repos, setRepos] = useState(cachedTrending.repos);
 
   useEffect(() => {
     let on = true;
     const load = async () => {
+      if (cachedTrending.time && Date.now() - cachedTrending.time < 30 * 60 * 1000) {
+        if (on) setRepos(cachedTrending.repos);
+        return;
+      }
       try {
         const res = await fetch("/api/github-trending", { cache: "no-store" });
         const json = await res.json();
-        if (on && json.repos) setRepos(json.repos);
+        if (on && json.repos) {
+          setRepos(json.repos);
+          cachedTrending.repos = json.repos;
+          cachedTrending.time = Date.now();
+        }
       } catch (e) {
         console.error("[CodeTrendingWidget]", e);
       }

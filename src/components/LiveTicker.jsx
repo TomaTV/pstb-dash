@@ -24,15 +24,7 @@ export default function LiveTicker({ ticker }) {
     return messages.join("   •   ");
   }, [messages]);
 
-  // Inject the keyframe once into <head> — CSS animation is GPU-smooth, no JS frame loop needed
-  useEffect(() => {
-    const id = "pstb-ticker-style";
-    if (document.getElementById(id)) return;
-    const style = document.createElement("style");
-    style.id = id;
-    style.textContent = `@keyframes ${ANIM_NAME} { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }`;
-    document.head.appendChild(style);
-  }, []);
+  // Removed keyframe injection since globals.css provides ticker-scroll
 
   if (!enabled || !content) return null;
 
@@ -61,16 +53,20 @@ export default function LiveTicker({ ticker }) {
           <span>Live</span>
         </div>
 
-        {/* Scrolling text — pure CSS animation, GPU-composited */}
-        <div className="flex-1 overflow-hidden relative">
+        {/* Scrolling text — seamless loop using CSS */}
+        <div className="flex-1 overflow-hidden relative flex">
           <div
-            className="whitespace-nowrap inline-block text-white/95 font-semibold text-[16px] tracking-wide pl-12 uppercase"
+            className="whitespace-nowrap flex text-white/95 font-semibold text-[16px] tracking-wide uppercase w-max"
             style={{
-              animation: `${ANIM_NAME} ${speed}s linear infinite`,
+              animation: `ticker-scroll ${speed}s linear infinite`,
               willChange: "transform",
             }}
           >
-            {content}
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="px-6 flex items-center shrink-0">
+                {content}
+              </div>
+            ))}
           </div>
         </div>
 

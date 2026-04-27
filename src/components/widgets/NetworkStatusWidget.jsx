@@ -52,7 +52,37 @@ export default function NetworkStatusWidget({ widget, mode = "grid" }) {
       try {
         const res = await fetch("/api/network-status", { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
+        let json = await res.json();
+        
+        // --- Client-side checks ---
+        if (json.targets) {
+          let updated = false;
+          for (const target of json.targets) {
+            if (target.kind === "client-fetch" && target.url) {
+              const start = Date.now();
+              try {
+                // Use no-cors to avoid CORS errors. If the IP is reachable, it will not throw.
+                // We add a cache buster to avoid browser caching.
+                await fetch(`${target.url}?_cb=${start}`, { mode: "no-cors", cache: "no-store", signal: AbortSignal.timeout(3000) });
+                target.status = "online";
+                target.latencyMs = Date.now() - start;
+                target.detail = "Ping local réussi (TV)";
+              } catch (err) {
+                target.status = "offline";
+                target.latencyMs = null;
+                target.detail = "Inaccessible depuis la TV";
+              }
+              updated = true;
+            }
+          }
+          // Re-evaluate global status if we updated client targets
+          if (updated) {
+            if (json.targets.some((r) => r.status === "offline")) json.status = "offline";
+            else if (json.targets.some((r) => r.status === "degraded")) json.status = "degraded";
+            else json.status = "online";
+          }
+        }
+        
         if (on) {
           setData(json);
           setLoading(false);

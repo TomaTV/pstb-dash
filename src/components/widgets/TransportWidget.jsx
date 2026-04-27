@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import WidgetWrapper from "@/components/WidgetWrapper";
 import { useDashboard } from "@/context/DashboardContext";
 import { Train, RefreshCw, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { motion } from "framer-motion";
 
 /* ─── Status overlay icon (top-right of badge) ─── */
 function StatusOverlay({ status }) {
@@ -102,16 +103,26 @@ function DisruptionRow({ group }) {
   );
 }
 
+let cachedTransport = null;
+let lastTransportFetch = 0;
+
 export default function TransportWidget({ widget, mode = "grid" }) {
   const { focusWidget } = useDashboard();
-  const [data, setData] = useState(null);
+  const [data, setData] = useState(cachedTransport);
   const scrollRef = useRef(null);
 
   const fetchData = useCallback(async () => {
+    if (cachedTransport && Date.now() - lastTransportFetch < 60_000) {
+      setData(cachedTransport);
+      return;
+    }
     try {
       const res = await fetch("/api/transport");
       if (!res.ok) throw new Error("fetch failed");
-      setData(await res.json());
+      const json = await res.json();
+      cachedTransport = json;
+      lastTransportFetch = Date.now();
+      setData(json);
     } catch (e) {
       console.error("[TransportWidget]", e);
     }
@@ -142,32 +153,7 @@ export default function TransportWidget({ widget, mode = "grid" }) {
     }
   }
 
-  // Auto-scroll logic for TV display
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || groupedDisruptions.length <= 5) return;
-
-    let animationFrameId;
-    let scrollTop = 0;
-
-    const scroll = () => {
-      scrollTop += 0.15; // Extremely slow, readable scrolling speed
-      if (scrollTop >= el.scrollHeight / 2) {
-        scrollTop = 0; // Seamless loop
-      }
-      el.scrollTop = scrollTop;
-      animationFrameId = requestAnimationFrame(scroll);
-    };
-
-    const timeoutId = setTimeout(() => {
-      animationFrameId = requestAnimationFrame(scroll);
-    }, 3000);
-
-    return () => {
-      clearTimeout(timeoutId);
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [groupedDisruptions.length]);
+  // Auto-scroll is now handled via framer-motion in the JSX
 
   return (
     <WidgetWrapper widget={widget} mode={mode} onClick={() => focusWidget(widget.id)}>
@@ -275,13 +261,32 @@ export default function TransportWidget({ widget, mode = "grid" }) {
                     <span className="text-base font-bold text-white">Perturbations en cours</span>
                   </div>
                   <div 
-                    ref={scrollRef}
-                    className="flex-1 overflow-y-auto space-y-3 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                    className="flex-1 overflow-hidden"
                     style={{ maskImage: "linear-gradient(to bottom, black 90%, transparent 100%)" }}
                   >
-                    {groupedDisruptions.map((g, i) => <DisruptionRow key={i} group={g} />)}
-                    {/* Duplicate list for seamless infinite scroll if there are many disruptions */}
-                    {groupedDisruptions.length > 5 && groupedDisruptions.map((g, i) => <DisruptionRow key={`dup-${i}`} group={g} />)}
+                    {groupedDisruptions.length > 5 ? (
+                      <motion.div
+                        className="flex flex-col"
+                        animate={{ y: ["0%", "-50%"] }}
+                        transition={{
+                          duration: groupedDisruptions.length * 4,
+                          ease: "linear",
+                          repeat: Infinity,
+                          repeatType: "loop"
+                        }}
+                      >
+                        <div className="flex flex-col gap-3 pb-3">
+                          {groupedDisruptions.map((g, i) => <DisruptionRow key={i} group={g} />)}
+                        </div>
+                        <div className="flex flex-col gap-3 pb-3">
+                          {groupedDisruptions.map((g, i) => <DisruptionRow key={`dup-${i}`} group={g} />)}
+                        </div>
+                      </motion.div>
+                    ) : (
+                      <div className="flex flex-col gap-3 pb-3">
+                        {groupedDisruptions.map((g, i) => <DisruptionRow key={i} group={g} />)}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

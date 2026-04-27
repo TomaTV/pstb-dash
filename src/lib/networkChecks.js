@@ -101,8 +101,14 @@ export function buildDefaultChecksFromEnv() {
       checks.push({
         id: "wifi-gateway",
         label: "Wi-Fi campus",
-        kind: "tcp",
-        run: () => checkTcpTarget(wifiIp, wifiPort, timeoutMs),
+        kind: "client-fetch",
+        url: `http://${wifiIp}:${wifiPort}`,
+        run: async () => ({
+          status: "pending",
+          latencyMs: null,
+          detail: "Vérification locale (TV)...",
+          url: `http://${wifiIp}:${wifiPort}`
+        }),
       });
     } else {
       checks.push({

@@ -45,23 +45,37 @@ function dayLabel(iso, idx) {
   return d.toLocaleDateString("fr-FR", { weekday: "long" });
 }
 
+const weatherCache = {};
+
 function useForecast(lat, lon) {
-  const [data, setData] = useState(null);
-  const [err, setErr] = useState(false);
+  const key = `${lat},${lon}`;
+  const [data, setData] = useState(weatherCache[key]?.data || null);
+  const [err, setErr] = useState(weatherCache[key]?.err || false);
   useEffect(() => {
     let on = true;
     const fetchW = async () => {
+      if (weatherCache[key] && Date.now() - weatherCache[key].time < 30 * 60 * 1000) {
+        if (on) {
+          setData(weatherCache[key].data);
+          setErr(weatherCache[key].err);
+        }
+        return;
+      }
       try {
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Europe%2FParis&forecast_days=4`;
         const res = await fetch(url);
         const json = await res.json();
-        if (on) setData(json);
-      } catch { if (on) setErr(true); }
+        weatherCache[key] = { data: json, err: false, time: Date.now() };
+        if (on) { setData(json); setErr(false); }
+      } catch { 
+        weatherCache[key] = { data: null, err: true, time: Date.now() };
+        if (on) setErr(true); 
+      }
     };
     fetchW();
     const id = setInterval(fetchW, 30 * 60 * 1000);
     return () => { on = false; clearInterval(id); };
-  }, [lat, lon]);
+  }, [lat, lon, key]);
   return { data, err };
 }
 

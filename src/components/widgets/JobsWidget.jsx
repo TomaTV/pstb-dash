@@ -46,17 +46,28 @@ function CategorySection({ icon: Icon, title, offers }) {
   );
 }
 
+let cachedOffers = null;
+let lastFetch = 0;
+
 export default function JobsWidget({ widget, mode = "grid" }) {
   const { focusWidget } = useDashboard();
   const d = widget.data ?? {};
-  const [apiOffers, setApiOffers] = useState([]);
+  const [apiOffers, setApiOffers] = useState(cachedOffers || []);
 
   const fetchJobs = useCallback(async () => {
+    if (cachedOffers && Date.now() - lastFetch < 600_000) {
+      setApiOffers(cachedOffers);
+      return;
+    }
     try {
       const res = await fetch("/api/jobs?count=20");
       if (!res.ok) return;
       const data = await res.json();
-      if (data.offers?.length > 0) setApiOffers(data.offers);
+      if (data.offers?.length > 0) {
+        cachedOffers = data.offers;
+        lastFetch = Date.now();
+        setApiOffers(data.offers);
+      }
     } catch (e) {
       console.warn("[JobsWidget] API fetch failed:", e);
     }
