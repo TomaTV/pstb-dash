@@ -225,18 +225,36 @@ function FocusZone({ viewMode }) {
           case "spo":
           case "iframe":
           case "gallery":
-          case "transport":
           case "social":
             durationSec = 10; break;
+          case "weather":
+          case "clock":
+          case "crypto":
+          case "countdown":
+          case "hub":
+          case "network-status":
+          case "campus-map":
+          case "video":
+          case "spo-video":
+            durationSec = 15; break;
+          case "transport":
+          case "rss":
+          case "github-trending":
+          case "next-event":
+            durationSec = 12; break;
           case "poll":
           case "jobs":
           case "student":
             durationSec = 18; break;
           case "wordle":
             durationSec = 22; break;
+          default:
+            durationSec = 10; break;
         }
       }
     }
+    // Hard safety — never let durationSec be 0, NaN or undefined
+    if (!durationSec || durationSec < 1) durationSec = 10;
 
     const ms = durationSec * 1000;
     const advance = () => {
