@@ -24,8 +24,7 @@ import NetworkStatusWidget from "./NetworkStatusWidget";
 import CampusMapWidget from "./CampusMapWidget";
 import SpoVideoWidget from "./SpoVideoWidget";
 import VideoWidget from "./VideoWidget";
-
-
+import BFMStreamWidget from "./BFMStreamWidget";
 
 export const WIDGET_COMPONENTS = {
   "next-event": NextEventWidget,
@@ -54,8 +53,7 @@ export const WIDGET_COMPONENTS = {
   "campus-map": CampusMapWidget,
   "spo-video": SpoVideoWidget,
   video: VideoWidget,
-
-
+  "bfm-stream": BFMStreamWidget,
 };
 
 export function renderWidget(widget, mode) {

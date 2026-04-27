@@ -260,6 +260,7 @@ export const WIDGET_TYPES = [
   { type: "campus-map", label: "Carte / Salles Libres" },
   { type: "spo-video", label: "SPO Vidéo (Cinématique)" },
   { type: "video", label: "Vidéo Plein Écran" },
+  { type: "bfm-stream", label: "BFM Direct" },
 ];
 
 
@@ -371,6 +372,9 @@ export const NEW_WIDGET_DEFAULTS = {
   video: {
     videoUrl: "",
     objectFit: "cover"
+  },
+  "bfm-stream": {
+    type: "business",
   }
 };
 

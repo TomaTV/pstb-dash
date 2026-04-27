@@ -87,18 +87,42 @@ export function DashboardProvider({ children }) {
   const [fullscreenId,setFullscreenId]= useState(null);
   const [hydrated,    setHydrated]    = useState(false);
 
+  const [activeScreenId, setActiveScreenId] = useState("main");
+  const fullDbRef = useRef({});
+
+  // Parse URL ?screen= param on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const s = params.get("screen");
+      if (s) setActiveScreenId(s);
+    }
+  }, []);
+
   // ── API Sync (JSON Local DB) ──
-  const saveToDB = useCallback(async (newWidgets, newSettings) => {
+  const saveToDB = useCallback(async (newWidgets, newSettings, screenId = activeScreenId) => {
     try {
       await fetch("/api/dashboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ widgets: newWidgets, settings: newSettings })
+        body: JSON.stringify({ widgets: newWidgets, settings: newSettings, screenId })
       });
     } catch (e) {
       console.error("Dashboard save error:", e);
     }
-  }, []);
+  }, [activeScreenId]);
+
+  // Sync state whenever activeScreenId changes
+  useEffect(() => {
+    const db = fullDbRef.current;
+    if (!db || Object.keys(db).length === 0) return;
+    
+    const wKey = activeScreenId === "main" ? "widgets" : `widgets_${activeScreenId}`;
+    const sKey = activeScreenId === "main" ? "settings" : `settings_${activeScreenId}`;
+    
+    setWidgets(prev => areWidgetsEqual(prev, db[wKey] || DEFAULT_WIDGETS) ? prev : (db[wKey] || DEFAULT_WIDGETS));
+    setSettings(prev => areSettingsEqual(prev, db[sKey] || DEFAULT_SETTINGS) ? prev : (db[sKey] || DEFAULT_SETTINGS));
+  }, [activeScreenId]);
 
   useEffect(() => {
     if (pathname === "/admin/login") {
@@ -127,12 +151,17 @@ export function DashboardProvider({ children }) {
       eventSource.onmessage = (event) => {
         if (!isMounted) return;
         try {
-          const data = JSON.parse(event.data);
-          if (Array.isArray(data.widgets)) {
-            setWidgets(prev => (areWidgetsEqual(prev, data.widgets) ? prev : data.widgets));
+          const db = JSON.parse(event.data);
+          fullDbRef.current = db; // Store full DB for fast switching
+          
+          const wKey = activeScreenId === "main" ? "widgets" : `widgets_${activeScreenId}`;
+          const sKey = activeScreenId === "main" ? "settings" : `settings_${activeScreenId}`;
+          
+          if (Array.isArray(db[wKey]) || Array.isArray(db.widgets)) {
+            setWidgets(prev => (areWidgetsEqual(prev, db[wKey] || DEFAULT_WIDGETS) ? prev : (db[wKey] || DEFAULT_WIDGETS)));
           }
-          if (data.settings) {
-            setSettings(prev => (areSettingsEqual(prev, data.settings) ? prev : data.settings));
+          if (db[sKey] || db.settings) {
+            setSettings(prev => (areSettingsEqual(prev, db[sKey] || DEFAULT_SETTINGS) ? prev : (db[sKey] || DEFAULT_SETTINGS)));
           }
           setHydrated(true);
         } catch (e) {
@@ -163,7 +192,7 @@ export function DashboardProvider({ children }) {
       clearReconnectTimer();
       if (eventSource) eventSource.close();
     };
-  }, [pathname]);
+  }, [pathname, activeScreenId]);
 
   useEffect(() => {
     if (!settings?.autoContent?.enabled) return;
@@ -353,6 +382,8 @@ export function DashboardProvider({ children }) {
   const value = useMemo(() => ({
     widgets,
     settings,
+    activeScreenId,
+    setActiveScreenId,
     focusedId,
     fullscreenId,
     focusedWidget,
@@ -372,7 +403,7 @@ export function DashboardProvider({ children }) {
     addWidget,
     deleteWidget,
   }), [
-    widgets, settings, focusedId, fullscreenId,
+    widgets, settings, activeScreenId, focusedId, fullscreenId,
     focusedWidget, fullscreenWidget, focusableWidgets,
     focusWidget, clearFocus, toggleFullscreen,
     updateWidget, updateWidgets, updateWidgetData, swapWidgets, reorderWidgets, resetWidgets, loadPreset, updateSettings,

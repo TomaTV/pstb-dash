@@ -10,7 +10,7 @@ import {
   Calendar, BarChart3, Clock as ClockIcon, Newspaper, Sparkles, FileText,
   Quote as QuoteIcon, Sun, Share2, Brain, TrendingDown, Images, PartyPopper,
   X as XIcon, BookOpen, Gamepad2, Train, Briefcase, Radio, AlertTriangle, LogOut,
-  Activity, Wifi, WifiOff, RefreshCw, Save, UserPlus, QrCode, Users, Download, Copy, Key
+  Activity, Wifi, WifiOff, RefreshCw, Save, UserPlus, QrCode, Users, Download, Copy, Key, ChevronDown, Monitor
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import { useDashboard } from "@/context/DashboardContext";
@@ -54,6 +54,7 @@ const TYPE_META = {
   "campus-map": { label: "Salles Libres", Icon: LayoutGrid, color: "text-emerald-400" },
   "spo-video": { label: "SPO Vidéo", Icon: Film, color: "text-violet" },
   video: { label: "Vidéo seule", Icon: Film, color: "text-blue-400" },
+  "bfm-stream": { label: "BFM Direct", Icon: Radio, color: "text-red-500" },
 };
 
 
@@ -83,6 +84,7 @@ const ADD_CATEGORIES = [
       { type: "weather", label: "Météo", data: () => NEW_WIDGET_DEFAULTS.weather },
       { type: "social", label: "Post social", data: () => NEW_WIDGET_DEFAULTS.social },
       { type: "jobs", label: "Offres emploi", data: () => NEW_WIDGET_DEFAULTS.jobs },
+      { type: "bfm-stream", label: "BFM Direct", data: () => ({ type: "business" }) },
     ]
   },
   {
@@ -118,6 +120,7 @@ export default function AdminPanel() {
   useEffect(() => setIsMounted(true), []);
   const {
     widgets, settings, focusedId,
+    activeScreenId, setActiveScreenId,
     updateWidget, updateWidgets, updateWidgetData, updateSettings,
     addWidget, deleteWidget, reorderWidgets, resetWidgets, loadPreset,
   } = useDashboard();
@@ -189,11 +192,27 @@ export default function AdminPanel() {
             </Link>
             <div>
               <span className="text-[9px] font-bold uppercase tracking-[0.4em] text-violet block mb-0.5">PST&B · Cockpit</span>
-              <h1 className="text-xl font-bold text-white leading-none tracking-tight">Gestion des écrans</h1>
+              <h1 className="text-xl font-bold text-white leading-none tracking-tight">Configuration</h1>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="relative group mr-2">
+              <div className="flex items-center gap-2 bg-[#1c1c24] hover:bg-[#252530] border border-white/10 rounded-lg px-3 py-1.5 transition-colors shadow-inner">
+                <Monitor size={14} className="text-violet" />
+                <select
+                  value={activeScreenId}
+                  onChange={(e) => setActiveScreenId(e.target.value)}
+                  className="bg-transparent text-white text-sm font-semibold outline-none cursor-pointer appearance-none pr-8 focus:ring-0"
+                >
+                  <option value="main" className="bg-[#13131A]">TV Principale</option>
+                  <option value="tv2" className="bg-[#13131A]">TV 2</option>
+                  <option value="tv3" className="bg-[#13131A]">TV 3</option>
+                </select>
+                <ChevronDown size={14} className="text-white/50 absolute right-3 pointer-events-none group-hover:text-white transition-colors" />
+              </div>
+            </div>
+
             {savedAt && (
               <span className="inline-flex items-center gap-1.5 text-xs text-violet font-semibold bg-violet/10 px-3 py-1.5 rounded-full">
                 <Check size={12} /> Enregistré
@@ -232,12 +251,12 @@ export default function AdminPanel() {
 
             <div id="admin-save-action" className="empty:hidden mr-1" />
 
-            <Link href="/" target="_blank" title="Voir en direct">
+            <Link href={`/?screen=${activeScreenId}`} target="_blank" title="Voir en direct">
               <button className="p-2.5 rounded-full text-white/60 hover:text-white hover:bg-white/8 transition-colors">
                 <Eye size={18} />
               </button>
             </Link>
-            <Link href="/" title="Lancer l'affichage">
+            <Link href={`/?screen=${activeScreenId}`} title="Lancer l'affichage">
               <button className="p-2.5 rounded-full bg-violet/20 text-violet hover:bg-violet/30 transition-colors shadow-[0_0_15px_rgba(101,31,255,0.3)]">
                 <Maximize2 size={18} />
               </button>
@@ -687,9 +706,9 @@ function EditorPanel({ widget, onChange, onChangeData }) {
         <button
           onClick={handleSave}
           title="Sauvegarder les modifications"
-          className="px-6 py-2.5 rounded-full bg-emerald-500 text-white font-black uppercase tracking-wider text-xs hover:bg-emerald-400 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center gap-2 animate-in fade-in zoom-in-95"
+          className="px-2.5 py-2.5 rounded-full bg-emerald-500 text-white font-black uppercase tracking-wider text-xs hover:bg-emerald-400 transition-colors shadow-[0_0_20px_rgba(16,185,129,0.4)] flex items-center gap-2 animate-in fade-in zoom-in-95"
         >
-          <Save size={16} strokeWidth={2.5} /> Enregistrer les modifications
+          <Save size={16} strokeWidth={2.5} />
         </button>,
         document.getElementById("admin-save-action")
       )}
@@ -901,8 +920,8 @@ function BreakingNewsPanel({ breaking, onChange }) {
         <button
           onClick={() => update({ active: !active })}
           className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-[0.2em] transition-all border flex items-center justify-center gap-2 ${active
-              ? "bg-red-500 border-red-500 text-white shadow-[0_0_20px_rgba(255,23,68,0.4)]"
-              : "border-white/15 text-white/70 hover:border-red-400/60 hover:text-red-400"
+            ? "bg-red-500 border-red-500 text-white shadow-[0_0_20px_rgba(255,23,68,0.4)]"
+            : "border-white/15 text-white/70 hover:border-red-400/60 hover:text-red-400"
             }`}
         >
           {active ? <><span className="inline-block w-1.5 h-1.5 rounded-full bg-white animate-pulse" />Diffusion en cours — arrêter</> : <><Zap size={12} />Diffuser maintenant</>}
@@ -950,9 +969,9 @@ function GlobalSettingsPanel({ settings, widgets, addWidget, onChange, onReset, 
       },
       // trafic actif seulement aux heures de pointe, offres d'alternance l'après-midi
       timeRules: [
-        { type: "transport", start: "07:30", end: "09:30", days: [1,2,3,4,5] },
-        { type: "transport", start: "17:00", end: "19:30", days: [1,2,3,4,5] },
-        { type: "jobs",      start: "12:00", end: "18:00", days: [1,2,3,4,5] },
+        { type: "transport", start: "07:30", end: "09:30", days: [1, 2, 3, 4, 5] },
+        { type: "transport", start: "17:00", end: "19:30", days: [1, 2, 3, 4, 5] },
+        { type: "jobs", start: "12:00", end: "18:00", days: [1, 2, 3, 4, 5] },
       ],
     },
     {
@@ -967,9 +986,9 @@ function GlobalSettingsPanel({ settings, widgets, addWidget, onChange, onReset, 
       },
       // sondage visible seulement en fin de journée, transport aux heures de pointe
       timeRules: [
-        { type: "poll",      start: "16:00", end: "20:00", days: [1,2,3,4,5] },
-        { type: "transport", start: "07:30", end: "09:30", days: [1,2,3,4,5] },
-        { type: "transport", start: "17:00", end: "19:30", days: [1,2,3,4,5] },
+        { type: "poll", start: "16:00", end: "20:00", days: [1, 2, 3, 4, 5] },
+        { type: "transport", start: "07:30", end: "09:30", days: [1, 2, 3, 4, 5] },
+        { type: "transport", start: "17:00", end: "19:30", days: [1, 2, 3, 4, 5] },
       ],
     },
     {
@@ -984,8 +1003,8 @@ function GlobalSettingsPanel({ settings, widgets, addWidget, onChange, onReset, 
       },
       // crypto en matinée seulement (marchés ouverts), social en fin de journée
       timeRules: [
-        { type: "crypto",  start: "08:00", end: "12:00", days: [1,2,3,4,5] },
-        { type: "social",  start: "15:00", end: "20:00", days: [1,2,3,4,5] },
+        { type: "crypto", start: "08:00", end: "12:00", days: [1, 2, 3, 4, 5] },
+        { type: "social", start: "15:00", end: "20:00", days: [1, 2, 3, 4, 5] },
       ],
     },
     {
@@ -1000,11 +1019,11 @@ function GlobalSettingsPanel({ settings, widgets, addWidget, onChange, onReset, 
       },
       // jeux visibles en pause déj et après les cours
       timeRules: [
-        { type: "wordle",  start: "12:00", end: "14:00", days: [1,2,3,4,5] },
-        { type: "wordle",  start: "17:30", end: "20:00", days: [1,2,3,4,5] },
-        { type: "puzzle",  start: "12:00", end: "14:00", days: [1,2,3,4,5] },
-        { type: "puzzle",  start: "17:30", end: "20:00", days: [1,2,3,4,5] },
-        { type: "poll",    start: "11:00", end: "20:00", days: [1,2,3,4,5] },
+        { type: "wordle", start: "12:00", end: "14:00", days: [1, 2, 3, 4, 5] },
+        { type: "wordle", start: "17:30", end: "20:00", days: [1, 2, 3, 4, 5] },
+        { type: "puzzle", start: "12:00", end: "14:00", days: [1, 2, 3, 4, 5] },
+        { type: "puzzle", start: "17:30", end: "20:00", days: [1, 2, 3, 4, 5] },
+        { type: "poll", start: "11:00", end: "20:00", days: [1, 2, 3, 4, 5] },
       ],
     },
     {
@@ -1032,9 +1051,9 @@ function GlobalSettingsPanel({ settings, widgets, addWidget, onChange, onReset, 
         5: ["campus-map", "hub", "gallery", "weather", "word", "quote"],
       },
       timeRules: [
-        { type: "transport", start: "07:30", end: "09:30", days: [1,2,3,4,5] },
-        { type: "transport", start: "17:00", end: "19:30", days: [1,2,3,4,5] },
-        { type: "campus-map", start: "07:00", end: "21:00", days: [1,2,3,4,5] },
+        { type: "transport", start: "07:30", end: "09:30", days: [1, 2, 3, 4, 5] },
+        { type: "transport", start: "17:00", end: "19:30", days: [1, 2, 3, 4, 5] },
+        { type: "campus-map", start: "07:00", end: "21:00", days: [1, 2, 3, 4, 5] },
       ],
     },
     {
@@ -1048,10 +1067,10 @@ function GlobalSettingsPanel({ settings, widgets, addWidget, onChange, onReset, 
         5: ["hub", "student", "gallery", "poll", "word", "wordle"],
       },
       timeRules: [
-        { type: "student",  start: "07:30", end: "12:00", days: [1,2,3,4,5] },
-        { type: "poll",     start: "10:00", end: "18:00", days: [1,2,3,4,5] },
-        { type: "transport",start: "07:30", end: "09:30", days: [1,2,3,4,5] },
-        { type: "wordle",   start: "12:00", end: "14:00", days: [5] },
+        { type: "student", start: "07:30", end: "12:00", days: [1, 2, 3, 4, 5] },
+        { type: "poll", start: "10:00", end: "18:00", days: [1, 2, 3, 4, 5] },
+        { type: "transport", start: "07:30", end: "09:30", days: [1, 2, 3, 4, 5] },
+        { type: "wordle", start: "12:00", end: "14:00", days: [5] },
       ],
     },
     { key: "full", label: "Tout activer", Icon: Zap, color: "text-violet", desc: "Tous les widgets Lun→Ven, aucune règle horaire", dayTypes: "all", timeRules: [] },
@@ -1533,12 +1552,11 @@ function GlobalSettingsPanel({ settings, widgets, addWidget, onChange, onReset, 
                 setGenerating(false);
                 setTimeout(() => setGenResult(null), 4000);
               }}
-              className={`w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all border flex items-center justify-center gap-2 ${
-                genResult === "success" ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" :
+              className={`w-full py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all border flex items-center justify-center gap-2 ${genResult === "success" ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-400" :
                 genResult === "skipped" ? "bg-amber-500/10 border-amber-500/25 text-amber-400" :
-                genResult === "error" ? "bg-red-500/10 border-red-500/25 text-red-400" :
-                "bg-violet/10 border-violet/30 text-violet hover:bg-violet/20"
-              }`}
+                  genResult === "error" ? "bg-red-500/10 border-red-500/25 text-red-400" :
+                    "bg-violet/10 border-violet/30 text-violet hover:bg-violet/20"
+                }`}
             >
               {generating ? (
                 <><RefreshCw size={13} className="animate-spin" /> Génération en cours...</>
@@ -2316,9 +2334,9 @@ function WidgetDataEditor({ widget, onChange }) {
       </label>
       <div>
         <div className="text-[11px] font-medium uppercase tracking-widest text-white/55 mb-1.5">Lien de la vidéo (Drive, Dropbox, Direct...)</div>
-        <Input 
-          value={data.videoUrl ?? ""} 
-          onChange={e => onChange({ videoUrl: e.target.value })} 
+        <Input
+          value={data.videoUrl ?? ""}
+          onChange={e => onChange({ videoUrl: e.target.value })}
           placeholder="https://drive.google.com/file/d/.../view"
         />
         <div className="mt-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
@@ -2330,7 +2348,7 @@ function WidgetDataEditor({ widget, onChange }) {
           </p>
         </div>
 
-        
+
         <div className="text-[11px] font-medium uppercase tracking-widest text-white/55 mb-1.5">Ou téléverser (max 5-10 Mo conseillé)</div>
         <FileToDataUrlInput accept="video/mp4,video/quicktime,video/webm"
           hasValue={!!data.videoUrl && data.videoUrl.startsWith("data:")}
@@ -2350,9 +2368,9 @@ function WidgetDataEditor({ widget, onChange }) {
     <>
       <div>
         <div className="text-[11px] font-medium uppercase tracking-widest text-white/55 mb-1.5">Lien de la vidéo (Direct / Drive / Dropbox)</div>
-        <Input 
-          value={data.videoUrl ?? ""} 
-          onChange={e => onChange({ videoUrl: e.target.value })} 
+        <Input
+          value={data.videoUrl ?? ""}
+          onChange={e => onChange({ videoUrl: e.target.value })}
           placeholder="https://..."
         />
       </div>
@@ -2379,8 +2397,51 @@ function WidgetDataEditor({ widget, onChange }) {
     </div>
   );
 
-  return <p className="text-sm text-white/45">Pas d'éditeur pour ce type.</p>;
+  if (type === "bfm-stream") return (
+    <>
+      <div className="space-y-2">
+        <div className="text-[11px] font-medium uppercase tracking-widest text-white/55">Chaîne par défaut</div>
+        <div className="flex gap-2">
+          <button onClick={() => onChange({ type: "business" })}
+            className={`flex-1 flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${data.type !== "tech" ? "border-red-500 bg-red-500/10 text-white shadow-[0_0_15px_rgba(239,68,68,0.2)]" : "border-white/10 bg-white/[0.02] text-white/50 hover:border-white/20 hover:text-white"}`}>
+            <span className="font-bold">BFM Business</span>
+          </button>
+          <button onClick={() => onChange({ type: "tech" })}
+            className={`flex-1 flex flex-col items-center justify-center p-4 rounded-xl border transition-all ${data.type === "tech" ? "border-blue-500 bg-blue-500/10 text-white shadow-[0_0_15px_rgba(59,130,246,0.2)]" : "border-white/10 bg-white/[0.02] text-white/50 hover:border-white/20 hover:text-white"}`}>
+            <span className="font-bold">BFM Tech & Co</span>
+          </button>
+        </div>
+      </div>
 
+      <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-4 mt-4">
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-widest text-violet mb-1">Horaires Spécifiques (Optionnel)</div>
+          <p className="text-xs text-white/45">Bascule automatiquement sur l'autre chaîne pendant ce créneau.</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Heure de début" type="time" value={data.scheduleStart ?? ""} onChange={e => onChange({ scheduleStart: e.target.value })} />
+          <Input label="Heure de fin" type="time" value={data.scheduleEnd ?? ""} onChange={e => onChange({ scheduleEnd: e.target.value })} />
+        </div>
+
+        <div>
+          <div className="text-[11px] font-medium uppercase tracking-widest text-white/55 mb-2">Chaîne pendant cet horaire</div>
+          <div className="flex gap-2">
+            <button onClick={() => onChange({ scheduleType: "business" })}
+              className={`flex-1 py-2 rounded-lg border text-xs font-semibold transition-all ${data.scheduleType !== "tech" ? "border-red-500 bg-red-500/10 text-red-100" : "border-white/10 bg-black/40 text-white/40 hover:text-white/80 hover:bg-white/5"}`}>
+              BFM Business
+            </button>
+            <button onClick={() => onChange({ scheduleType: "tech" })}
+              className={`flex-1 py-2 rounded-lg border text-xs font-semibold transition-all ${data.scheduleType === "tech" ? "border-blue-500 bg-blue-500/10 text-blue-100" : "border-white/10 bg-black/40 text-white/40 hover:text-white/80 hover:bg-white/5"}`}>
+              BFM Tech & Co
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
+  return <p className="text-sm text-white/45">Pas d'éditeur pour ce type.</p>;
 }
 
 /* ════════════════════════════════════════════
@@ -2567,8 +2628,8 @@ function TransportDisruptionsEditor({ data, onChange }) {
                   value={d.status}
                   onChange={e => update(i, { status: e.target.value })}
                   className={`rounded-xl border px-3 py-2 text-sm font-bold focus:outline-none focus:border-violet/50 ${d.status === "critical"
-                      ? "bg-red-500/10 border-red-500/30 text-red-400"
-                      : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                    ? "bg-red-500/10 border-red-500/30 text-red-400"
+                    : "bg-amber-500/10 border-amber-500/30 text-amber-400"
                     }`}
                 >
                   <option value="disrupted">Perturbé</option>
@@ -2593,8 +2654,8 @@ function TransportDisruptionsEditor({ data, onChange }) {
         onClick={handleSave}
         disabled={saving}
         className={`w-full py-3 rounded-2xl font-bold text-sm transition-all ${saved
-            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-            : "bg-violet hover:bg-violet/80 text-white"
+          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+          : "bg-violet hover:bg-violet/80 text-white"
           }`}
       >
         {saved ? "✓ Sauvegardé — la télé se met à jour" : saving ? "Sauvegarde..." : "Appliquer les perturbations"}
@@ -2616,21 +2677,21 @@ function QrGenerator({ widgets }) {
 
   const targetUrl = selectedWidget
     ? (() => {
-        const w = widgets.find((x) => x.id === selectedWidget);
-        // Default tracked URL per widget type
-        const dest = w?.type === "wordle" ? `${baseUrl}/jeu`
-          : w?.type === "jobs" ? `${baseUrl}/etudiants`
+      const w = widgets.find((x) => x.id === selectedWidget);
+      // Default tracked URL per widget type
+      const dest = w?.type === "wordle" ? `${baseUrl}/jeu`
+        : w?.type === "jobs" ? `${baseUrl}/etudiants`
           : w?.type === "poll" ? `${baseUrl}/vote`
-          : customUrl || baseUrl;
-        return dest;
-      })()
+            : customUrl || baseUrl;
+      return dest;
+    })()
     : customUrl;
 
   const trackingUrl = targetUrl && selectedWidget
     ? `${baseUrl}/api/track?w=${selectedWidget}&url=${encodeURIComponent(targetUrl)}`
     : targetUrl
-    ? `${baseUrl}/api/track?url=${encodeURIComponent(targetUrl)}`
-    : null;
+      ? `${baseUrl}/api/track?url=${encodeURIComponent(targetUrl)}`
+      : null;
 
   const handleCopy = () => {
     if (!trackingUrl) return;
@@ -2679,12 +2740,12 @@ function QrGenerator({ widgets }) {
               type="url"
               value={selectedWidget
                 ? (() => {
-                    const w = widgets.find((x) => x.id === selectedWidget);
-                    return w?.type === "wordle" ? `${baseUrl}/jeu`
-                      : w?.type === "jobs" ? `${baseUrl}/etudiants`
+                  const w = widgets.find((x) => x.id === selectedWidget);
+                  return w?.type === "wordle" ? `${baseUrl}/jeu`
+                    : w?.type === "jobs" ? `${baseUrl}/etudiants`
                       : w?.type === "poll" ? `${baseUrl}/vote`
-                      : customUrl || baseUrl;
-                  })()
+                        : customUrl || baseUrl;
+                })()
                 : customUrl}
               onChange={(e) => { setCustomUrl(e.target.value); setSelectedWidget(null); }}
               placeholder="https://..."

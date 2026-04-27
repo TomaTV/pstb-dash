@@ -26,10 +26,16 @@ export async function POST(req) {
     const body = await req.json();
     const currentDB = getFullDb();
     
-    const nextDB = {
-      settings: body.settings ?? currentDB.settings ?? defaultState.settings,
-      widgets: body.widgets ?? currentDB.widgets ?? defaultState.widgets,
-    };
+    const screenId = body.screenId;
+    const nextDB = {};
+    
+    if (screenId && screenId !== "main") {
+      nextDB[`settings_${screenId}`] = body.settings ?? currentDB[`settings_${screenId}`] ?? defaultState.settings;
+      nextDB[`widgets_${screenId}`] = body.widgets ?? currentDB[`widgets_${screenId}`] ?? defaultState.widgets;
+    } else {
+      nextDB.settings = body.settings ?? currentDB.settings ?? defaultState.settings;
+      nextDB.widgets = body.widgets ?? currentDB.widgets ?? defaultState.widgets;
+    }
 
     updateFullDb(nextDB);
     return NextResponse.json(nextDB);
