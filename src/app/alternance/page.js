@@ -9,12 +9,14 @@ import {
   Code2,
   Megaphone,
   Search,
-  SlidersHorizontal,
   ExternalLink,
   Clock,
   ChevronDown,
-  Loader2,
   RefreshCw,
+  X,
+  Copy,
+  Check,
+  Sparkles,
 } from "lucide-react";
 
 const CATEGORIES = [
@@ -23,10 +25,156 @@ const CATEGORIES = [
   { key: "marketing", label: "Marketing & Business" },
 ];
 
+const CLAUDE_ALTERNANCE_PROMPT = `Tu es un coach de carrière expert et un spécialiste du recrutement en France, particulièrement pour les profils hybrides, Tech et Business. >
+Mon objectif est de trouver une alternance. Je suis étudiant(e) à la PST&B (Paris School of Technology & Business), une école qui forme aux doubles compétences en technologie et en commerce.
+
+Je vais te fournir mon CV ci-dessous. En te basant exclusivement sur son contenu (mes compétences, mes expériences, mes projets et ma formation), je veux que tu me construises une stratégie de recherche d'alternance sur mesure, orientée Marketing ou Tech (selon ce qui ressort le plus de mon profil, ou une combinaison des deux).
+
+Voici ce que tu dois me fournir, étape par étape :
+
+1. Analyse de mon profil (Bilan flash) 🔍
+
+    Dégage mes 3 forces principales pour le marché de l'alternance.
+
+    Identifie si mon profil penche plutôt vers la Tech, le Marketing, ou s'il est parfaitement hybride.
+
+    Pointe une faiblesse potentielle de mon CV (manque d'un outil précis, expérience courte, etc.) et dis-moi comment la compenser en entretien.
+
+2. Ciblage des postes (Titres exacts) 🎯
+
+    Propose-moi 3 à 5 intitulés de postes précis (en français et en anglais) qui correspondent exactement à mon niveau et à mes compétences.
+
+    Pour chaque poste, explique en une phrase pourquoi mon CV matche avec ce rôle.
+
+3. Stratégie de recherche et Mots-clés 🔑
+
+    Donne-moi les meilleurs mots-clés à utiliser sur les jobboards (LinkedIn, Welcome to the Jungle, HelloWork) pour trouver ces offres.
+
+    Rédige-moi 2 requêtes booléennes prêtes à l'emploi pour mes recherches LinkedIn.
+
+4. Ciblage des entreprises 🏢
+
+    Suggère-moi 3 catégories d'entreprises qui recrutent ce type de profil en alternance (ex: Agences SEO, Éditeurs de logiciels SaaS, E-commerce, ESN, Startups FinTech...).
+
+    Donne-moi 2 ou 3 exemples de vraies entreprises à Paris/Île-de-France (ou en remote) que je pourrais cibler en candidature spontanée.
+
+5. Le "Hack" PST&B 🚀
+
+    Rédige un court paragraphe d'accroche (3 lignes max) que je peux utiliser dans ma lettre de motivation ou message LinkedIn, qui met en valeur ma double compétence (Tech/Business) propre à la PST&B en lien avec mon CV.
+
+Voici mon CV :`;
+
 function getBadgeColor(category) {
   return category === "tech"
     ? "bg-violet/15 text-violet border-violet/25"
     : "bg-pink-500/15 text-pink-400 border-pink-500/25";
+}
+
+function ClaudeLogo() {
+  return (
+    <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-[#D97757]/15 border border-[#D97757]/30 shadow-lg shadow-black/30">
+      <div className="absolute inset-1 rounded-xl bg-[#D97757]/10" />
+      <Sparkles size={20} className="relative text-[#D97757]" />
+    </div>
+  );
+}
+
+function ClaudePromptModal({ open, onClose }) {
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!open) setCopied(false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(CLAUDE_ALTERNANCE_PROMPT);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-8 bg-black/70 backdrop-blur-md"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="claude-prompt-title"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/[0.1] bg-[#0f0f15] shadow-2xl shadow-black/60">
+        <div className="absolute -top-32 -right-24 h-64 w-64 rounded-full bg-[#D97757]/20 blur-[90px]" />
+        <div className="absolute -bottom-28 -left-20 h-56 w-56 rounded-full bg-violet/20 blur-[80px]" />
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-4 top-4 z-10 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 text-white/50 transition-colors hover:bg-white/[0.08] hover:text-white"
+          aria-label="Fermer la fenêtre"
+        >
+          <X size={16} />
+        </button>
+
+        <div className="relative p-7">
+          <ClaudeLogo />
+
+          <div className="mt-5 pr-8">
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#D97757]">
+              Assistant Claude
+            </p>
+            <h2
+              id="claude-prompt-title"
+              className="mt-2 text-2xl font-black tracking-tight text-white"
+            >
+              Recherche d'alternance assistée par IA
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-white/65">
+              Ce bouton copie un prompt prêt à coller dans Claude. L'étudiant peut ensuite ajouter son CV pour obtenir une stratégie personnalisée : analyse du profil, ciblage des postes, mots-clés, entreprises à contacter et accroche PST&amp;B.
+            </p>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 h-2 w-2 rounded-full bg-[#D97757] shadow-[0_0_14px_rgba(217,119,87,0.7)]" />
+              <p className="text-xs leading-relaxed text-white/50">
+                Le prompt n'est pas affiché dans l'interface afin de garder l'expérience simple côté étudiant. Il est uniquement placé dans le presse-papiers.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleCopy}
+            className={`mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-black transition-all border ${
+              copied
+                ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+                : "border-[#D97757]/30 bg-[#D97757]/20 text-white hover:bg-[#D97757]/30"
+            }`}
+          >
+            {copied ? <Check size={17} /> : <Copy size={17} />}
+            {copied ? "Prompt copié" : "Copier le prompt pour Claude"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function OfferCard({ offer, index }) {
@@ -49,7 +197,6 @@ function OfferCard({ offer, index }) {
       className="group relative rounded-2xl border border-white/[0.1] bg-[#0f0f15] hover:bg-[#14141c] hover:border-violet/30 transition-all duration-300 overflow-hidden flex flex-col shadow-lg"
       style={{ animationDelay: `${index * 30}ms` }}
     >
-      {/* Top accent bar */}
       <div
         className={`h-[2px] w-full ${
           offer.category === "tech"
@@ -59,7 +206,6 @@ function OfferCard({ offer, index }) {
       />
 
       <div className="flex flex-col gap-4 p-5 flex-1">
-        {/* Header row */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -91,7 +237,6 @@ function OfferCard({ offer, index }) {
           </div>
         </div>
 
-        {/* Meta info */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-white/70 font-medium">
           <span className="flex items-center gap-1">
             <MapPin size={10} />
@@ -114,21 +259,18 @@ function OfferCard({ offer, index }) {
           )}
         </div>
 
-        {/* Description */}
         {offer.description && (
           <p className="text-[11.5px] text-white/80 leading-relaxed line-clamp-2 flex-1">
             {offer.description}
           </p>
         )}
 
-        {/* Source badge */}
         <div className="text-[9px] uppercase tracking-[0.2em] text-white/50 font-bold border-t border-white/[0.08] pt-3 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />
           Source : Adzuna
         </div>
       </div>
 
-      {/* Footer: Action */}
       <div className="border-t border-white/[0.06] p-4 bg-[#0a0a0f] flex items-center justify-between gap-4">
         <div className="flex-1">
           <a
@@ -141,7 +283,10 @@ function OfferCard({ offer, index }) {
             <ExternalLink size={14} />
           </a>
         </div>
-        <div className="shrink-0 bg-white p-1.5 rounded-lg shadow-lg shadow-black/40" title="Scanner avec un mobile">
+        <div
+          className="shrink-0 bg-white p-1.5 rounded-lg shadow-lg shadow-black/40"
+          title="Scanner avec un mobile"
+        >
           <QRCode value={qrUrl} size={48} />
         </div>
       </div>
@@ -180,6 +325,7 @@ export default function AlternancePage() {
   const [category, setCategory] = useState("all");
   const [sortBy, setSortBy] = useState("date");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isClaudeModalOpen, setIsClaudeModalOpen] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -201,13 +347,12 @@ export default function AlternancePage() {
     let list = offers.filter((o) => {
       const company = (o.company || "").toLowerCase();
       const title = (o.title || "").toLowerCase();
-      const desc = (o.description || "").toLowerCase();
-      
-      const isSchool = 
-        company.includes("iscod") || 
-        company.includes("alegria") || 
-        company.includes("openclassrooms") || 
-        company.includes("my digital school") || 
+
+      const isSchool =
+        company.includes("iscod") ||
+        company.includes("alegria") ||
+        company.includes("openclassrooms") ||
+        company.includes("my digital school") ||
         company.includes("epitech") ||
         company.includes("aurlom") ||
         company.includes("dsti") ||
@@ -216,9 +361,12 @@ export default function AlternancePage() {
         company.includes("ecole") ||
         company.includes("campus") ||
         company.includes("formation");
-        
-      const isFormation = title.includes("formation") || title.includes("école") || title.includes("ecole");
-      
+
+      const isFormation =
+        title.includes("formation") ||
+        title.includes("école") ||
+        title.includes("ecole");
+
       return !isSchool && !isFormation;
     });
 
@@ -247,18 +395,15 @@ export default function AlternancePage() {
 
   return (
     <div className="h-screen overflow-y-auto custom-scrollbar bg-[#060608] text-white font-sans">
-      {/* Background glow */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute -top-40 left-1/4 w-[700px] h-[700px] rounded-full bg-violet/[0.07] blur-[120px]" />
         <div className="absolute top-1/2 right-0 w-[500px] h-[500px] rounded-full bg-pink-500/[0.05] blur-[100px]" />
       </div>
 
       <div className="relative z-10">
-        {/* Header */}
         <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[#060608]/85 backdrop-blur-xl">
           <div className="max-w-7xl mx-auto px-6 py-5">
             <div className="flex items-center justify-between gap-6 flex-wrap">
-              {/* Brand */}
               <div className="flex items-center gap-4">
                 <div className="p-2.5 rounded-xl bg-violet/10 border border-violet/20">
                   <Briefcase size={22} className="text-violet" />
@@ -273,8 +418,17 @@ export default function AlternancePage() {
                 </div>
               </div>
 
-              {/* Stats pills */}
               <div className="flex items-center gap-3 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsClaudeModalOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#D97757]/30 bg-[#D97757]/15 px-3 py-1.5 text-[12px] font-bold text-white/90 transition-colors hover:bg-[#D97757]/25 hover:text-white"
+                  title="Copier le prompt Claude pour aider l'étudiant dans sa recherche d'alternance"
+                >
+                  <Sparkles size={13} className="text-[#D97757]" />
+                  Assistant Claude
+                </button>
+
                 {!loading && (
                   <>
                     <div className="flex items-center gap-1.5 text-[12px] font-bold text-white/80 bg-white/[0.06] border border-white/[0.1] px-3 py-1.5 rounded-full">
@@ -300,7 +454,6 @@ export default function AlternancePage() {
               </div>
             </div>
 
-            {/* Search + filters */}
             <div className="flex items-center gap-3 mt-4 flex-wrap">
               <div className="relative flex-1 min-w-[200px]">
                 <Search
@@ -316,7 +469,6 @@ export default function AlternancePage() {
                 />
               </div>
 
-              {/* Category filter */}
               <div className="flex items-center gap-1.5">
                 {CATEGORIES.map((c) => (
                   <button
@@ -333,7 +485,6 @@ export default function AlternancePage() {
                 ))}
               </div>
 
-              {/* Sort */}
               <div className="relative">
                 <select
                   value={sortBy}
@@ -352,9 +503,7 @@ export default function AlternancePage() {
           </div>
         </header>
 
-        {/* Main content */}
         <main className="max-w-7xl mx-auto px-6 py-8">
-          {/* Error state */}
           {error && (
             <div className="rounded-2xl border border-red-500/20 bg-red-500/5 px-6 py-5 mb-8 flex items-start gap-4">
               <div className="p-2 rounded-xl bg-red-500/10 shrink-0">
@@ -373,7 +522,6 @@ export default function AlternancePage() {
             </div>
           )}
 
-          {/* Loading skeletons */}
           {loading && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {Array.from({ length: 12 }).map((_, i) => (
@@ -382,7 +530,6 @@ export default function AlternancePage() {
             </div>
           )}
 
-          {/* Results */}
           {!loading && !error && (
             <>
               {filtered.length === 0 ? (
@@ -421,7 +568,6 @@ export default function AlternancePage() {
           )}
         </main>
 
-        {/* Footer */}
         <footer className="border-t border-white/[0.05] mt-16 py-8">
           <div className="max-w-7xl mx-auto px-6 flex items-center justify-between flex-wrap gap-4">
             <div className="text-[11px] text-white/20 font-medium">
@@ -441,6 +587,11 @@ export default function AlternancePage() {
           </div>
         </footer>
       </div>
+
+      <ClaudePromptModal
+        open={isClaudeModalOpen}
+        onClose={() => setIsClaudeModalOpen(false)}
+      />
     </div>
   );
 }
