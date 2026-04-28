@@ -184,7 +184,7 @@ export default function AlternancePage() {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetch("/api/jobs?count=50")
+    fetch("/api/jobs?count=200")
       .then((r) => r.json())
       .then((data) => {
         if (data.error && !data.offers?.length) {
