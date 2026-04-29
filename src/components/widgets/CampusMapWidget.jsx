@@ -5,71 +5,82 @@ import WidgetWrapper from "@/components/WidgetWrapper";
 import { useDashboard } from "@/context/DashboardContext";
 import { useState, useEffect } from "react";
 
-// Correspondance roomId → clé interne SVG
 const ROOM_IDS = ["salle1", "salle2", "salle3", "salle4", "salle5", "amphi", "coworking"];
-
-// Statut par défaut quand aucun ICS n'est disponible : toutes libres
 const DEFAULT_STATUS = Object.fromEntries(ROOM_IDS.map(id => [id, { free: true }]));
 
+// Mapping TimeEdit room labels → clés SVG
+// Les labels sont ceux retournés par /api/timeedit (LOCATION sans préfixe "CHANZY ")
 function parseApiRooms(apiRooms) {
-  // Mappe les IDs de l'API (ROOM_MAP de campus-calendar) vers les clés SVG
   const aliases = {
-    "SALLE1": "salle1", "SALLE 1": "salle1", "S1": "salle1",
-    "SALLE2": "salle2", "SALLE 2": "salle2", "S2": "salle2",
-    "SALLE3": "salle3", "SALLE 3": "salle3", "S3": "salle3",
-    "SALLE4": "salle4", "SALLE 4": "salle4", "S4": "salle4",
-    "SALLE5": "salle5", "SALLE 5": "salle5", "S5": "salle5",
-    "AMPHI": "amphi", "AMPHITHEATRE": "amphi", "AMPHITHÉÂTRE": "amphi",
-    "COWORKING": "coworking", "COW": "coworking",
+    // Salle 1 / Salle 01 INFO
+    "SALLE 01 INFO": "salle1", "SALLE1": "salle1", "SALLE 1": "salle1", "S1": "salle1",
+    "SALLE 01": "salle1",
+    // Salle 2
+    "SALLE 02": "salle2", "SALLE2": "salle2", "SALLE 2": "salle2", "S2": "salle2",
+    // Salle 3
+    "SALLE 03": "salle3", "SALLE3": "salle3", "SALLE 3": "salle3", "S3": "salle3",
+    // Salle 4
+    "SALLE 04": "salle4", "SALLE4": "salle4", "SALLE 4": "salle4", "S4": "salle4",
+    // Salle 5
+    "SALLE 05": "salle5", "SALLE5": "salle5", "SALLE 5": "salle5", "S5": "salle5",
+    // Amphi
+    "SALLE 00 AMPHI": "amphi", "AMPHI": "amphi", "AMPHITHEATRE": "amphi",
+    "AMPHITHÉÂTRE": "amphi", "SALLE 00": "amphi",
+    // Coworking
+    "CO-WORKING": "coworking", "COWORKING": "coworking", "COW": "coworking",
+    "CAFÉTARIA": "coworking", "CAFETARIA": "coworking",
   };
 
   const result = { ...DEFAULT_STATUS };
   for (const room of apiRooms) {
-    const key = aliases[room.id.toUpperCase()] || aliases[room.label.toUpperCase()] || null;
-    if (key) result[key] = room;
+    // room.label = nom sans préfixe "CHANZY ", room.id = nom complet
+    const keyLabel = (room.label || "").toUpperCase().trim();
+    const keyId    = (room.id   || "").toUpperCase().trim()
+      .replace(/^CHANZY\s*/i, "");
+
+    const svgKey = aliases[keyLabel] ?? aliases[keyId] ?? null;
+    if (svgKey) result[svgKey] = room;
   }
   return result;
 }
 
 export default function CampusMapWidget({ widget, mode = "grid" }) {
   const { focusWidget } = useDashboard();
-  const [rooms, setRooms] = useState(DEFAULT_STATUS);
+  const [rooms, setRooms]       = useState(DEFAULT_STATUS);
   const [updatedAt, setUpdatedAt] = useState(null);
-  const [hasIcs, setHasIcs] = useState(false);
+  const [loaded, setLoaded]     = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function fetchRooms() {
       try {
-        const res = await fetch("/api/campus-calendar");
-        if (!res.ok) return; // pas de ICS → garde DEFAULT_STATUS
+        const res = await fetch("/api/timeedit");
+        if (!res.ok) return;
         const data = await res.json();
         if (cancelled || !data.rooms) return;
         setRooms(parseApiRooms(data.rooms));
         setUpdatedAt(data.updatedAt);
-        setHasIcs(true);
+        setLoaded(true);
       } catch {
-        // silencieux — affiche les données par défaut
+        // silencieux — garde le statut par défaut
       }
     }
 
     fetchRooms();
-    const interval = setInterval(fetchRooms, 5 * 60 * 1000); // refresh toutes les 5 min
+    const interval = setInterval(fetchRooms, 5 * 60 * 1000);
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  const color = (key) =>
-    rooms[key]?.free === false
-      ? "#ef4444"
-      : "#10b981";
+  const color = key =>
+    rooms[key]?.free === false ? "#ef4444" : "#10b981";
 
-  const statusClass = (key) =>
+  const statusClass = key =>
     rooms[key]?.free === false
       ? "bg-red-500/80 border-red-400 text-white"
       : "bg-emerald-500/80 border-emerald-400 text-white";
 
-  const statusLabel = (key) => {
+  const statusLabel = key => {
     const r = rooms[key];
     if (!r || r.free === true) return "Libre";
     if (r.busyUntil) return `Occupé → ${r.busyUntil}`;
@@ -95,7 +106,9 @@ export default function CampusMapWidget({ widget, mode = "grid" }) {
                 </div>
               </div>
               <p className="text-[10px] text-sub">
-                {hasIcs ? `Mis à jour ${updatedAt ? new Date(updatedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : ""}` : "Aucun ICS — données simulées"}
+                {loaded
+                  ? `Mis à jour ${updatedAt ? new Date(updatedAt).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : ""}`
+                  : "Chargement planning…"}
               </p>
             </div>
           );
@@ -113,8 +126,8 @@ export default function CampusMapWidget({ widget, mode = "grid" }) {
                 <h1 className="text-4xl font-black text-white tracking-tight">Disponibilité des Salles</h1>
               </div>
               <div className="ml-auto flex items-center gap-6">
-                {!hasIcs && (
-                  <span className="text-xs text-white/30 italic">Aucun ICS connecté</span>
+                {!loaded && (
+                  <span className="text-xs text-white/30 italic">Chargement…</span>
                 )}
                 <div className="flex items-center gap-2">
                   <div className="w-4 h-4 rounded-full bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.5)]"></div>
