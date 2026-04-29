@@ -6,7 +6,7 @@ export async function POST(req) {
     let { guess } = await req.json();
     if (!guess || typeof guess !== "string") return NextResponse.json({ error: "Missing guess" }, { status: 400 });
 
-    const widgets = getStore("widgets");
+    const widgets = await getStore("widgets");
     if (!widgets) return NextResponse.json({ error: "DB not found" }, { status: 404 });
 
     const wordleIndex = widgets.findIndex(w => w.type === "wordle");
@@ -41,7 +41,7 @@ export async function POST(req) {
       }
     };
 
-    setStore("widgets", widgets);
+    await setStore("widgets", widgets);
     return NextResponse.json({ success: true, guesses });
   } catch (e) {
     console.error(e);

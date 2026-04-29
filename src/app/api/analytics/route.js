@@ -4,8 +4,8 @@ import { getUsers } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const users = getUsers() || {};
-    const stats = getStore("stats") || { scans: {}, events: [] };
+    const users = (await getUsers()) || {};
+    const stats = (await getStore("stats")) || { scans: {}, events: [] };
     if (!stats.events) stats.events = [];
 
     const students = Object.values(users)

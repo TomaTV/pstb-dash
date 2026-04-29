@@ -19,14 +19,14 @@ export async function POST(req) {
   try {
     const ip = req.headers.get("x-forwarded-for") || req.ip || "unknown";
     const ipKey = `rate_limit_wordle_${ip}`;
-    const lastWin = getStore(ipKey);
-    
+    const lastWin = await getStore(ipKey);
+
     // Simple Rate Limiting: 1 win per IP per minute
     if (lastWin && Date.now() - lastWin < 60 * 1000) {
       return NextResponse.json({ error: "Rate limited" }, { status: 429 });
     }
 
-    const widgets = getStore("widgets");
+    const widgets = await getStore("widgets");
     if (!widgets) {
       return NextResponse.json({ error: "DB not found" }, { status: 404 });
     }
@@ -62,8 +62,8 @@ export async function POST(req) {
       }
     };
 
-    setStore("widgets", widgets);
-    setStore(ipKey, Date.now());
+    await setStore("widgets", widgets);
+    await setStore(ipKey, Date.now());
 
     return NextResponse.json({ success: true, pauseUntil });
   } catch (e) {

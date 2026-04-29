@@ -82,20 +82,20 @@ export async function verifyAdminSessionToken(token) {
 import { getStore, setStore } from "@/lib/db";
 import { cookies } from "next/headers";
 
-export function getUsers() {
-  return getStore("users") || {};
+export async function getUsers() {
+  return (await getStore("users")) || {};
 }
 
-export function saveUser(email, data) {
-  const users = getUsers();
+export async function saveUser(email, data) {
+  const users = await getUsers();
   users[email] = data;
-  setStore("users", users);
+  await setStore("users", users);
 }
 
 export async function getSession() {
   const cookieStore = await cookies();
   const email = cookieStore.get("pstb_student_email")?.value;
   if (!email) return null;
-  const users = getUsers();
+  const users = await getUsers();
   return users[email] || null;
 }

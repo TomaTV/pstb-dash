@@ -50,9 +50,9 @@ export async function POST(req) {
     };
 
     // Save to db
-    const widgets = getStore("widgets") || [];
+    const widgets = (await getStore("widgets")) || [];
     widgets.push(newWidget);
-    setStore("widgets", widgets);
+    await setStore("widgets", widgets);
 
     // Optional: Send email notification to t.devulder@pstb.fr
     // Configure SMTP if you have it in .env.local:

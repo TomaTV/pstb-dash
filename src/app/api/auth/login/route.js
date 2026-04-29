@@ -34,7 +34,7 @@ export async function POST(req) {
     }
 
     const emailFormatted = email.trim().toLowerCase();
-    const users = getUsers();
+    const users = await getUsers();
     const user = users[emailFormatted];
 
     if (!user) {
