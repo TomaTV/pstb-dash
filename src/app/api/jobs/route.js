@@ -7,17 +7,33 @@ import { NextResponse } from "next/server";
 const APP_ID = process.env.ADZUNA_APP_ID ?? "";
 const APP_KEY = process.env.ADZUNA_APP_KEY ?? "";
 
+// Queries calées sur les programmes PST&B (Bachelor + Mastère, filière Tech & filière Business/Marketing)
+// https://pstb.fr — Tech : Dev Web/Mobile, Data/IA, Cyber, Cloud · Business : Marketing Digital, Growth, Business Dev, Communication
 const SEARCHES = [
-  { query: "alternance développeur", category: "it-jobs", count: 25 },
-  { query: "alternance data science", category: "it-jobs", count: 20 },
-  { query: "alternance cybersécurité", category: "it-jobs", count: 15 },
-  { query: "alternance cloud devops", category: "it-jobs", count: 15 },
-  { query: "alternance intelligence artificielle", category: "it-jobs", count: 15 },
-  { query: "alternance marketing digital", count: 25 },
-  { query: "alternance communication digitale", count: 20 },
-  { query: "alternance commerce business", count: 20 },
-  { query: "alternance chef de projet", count: 15 },
-  { query: "alternance ressources humaines", count: 15 },
+  // ── Tech & Dev ──
+  { query: "alternance développeur web", category: "it-jobs", count: 20, tag: "tech" },
+  { query: "alternance fullstack", category: "it-jobs", count: 15, tag: "tech" },
+  { query: "alternance data analyst", category: "it-jobs", count: 15, tag: "tech" },
+  { query: "alternance data engineer", category: "it-jobs", count: 10, tag: "tech" },
+  { query: "alternance intelligence artificielle", category: "it-jobs", count: 12, tag: "tech" },
+  { query: "alternance cybersécurité", category: "it-jobs", count: 12, tag: "tech" },
+  { query: "alternance devops cloud", category: "it-jobs", count: 10, tag: "tech" },
+  { query: "alternance product manager", category: "it-jobs", count: 10, tag: "tech" },
+  // ── Marketing & Business ──
+  { query: "alternance marketing digital", count: 20, tag: "marketing" },
+  { query: "alternance growth marketing", count: 12, tag: "marketing" },
+  { query: "alternance social media", count: 12, tag: "marketing" },
+  { query: "alternance communication digitale", count: 15, tag: "marketing" },
+  { query: "alternance business developer", count: 15, tag: "marketing" },
+  { query: "alternance chef de projet digital", count: 12, tag: "marketing" },
+  { query: "alternance e-commerce", count: 10, tag: "marketing" },
+  { query: "alternance content manager", count: 10, tag: "marketing" },
+];
+
+// Mots clés d'exclusion (écoles & organismes de formation = bruit)
+const SCHOOL_BLOCKLIST = [
+  "iscod", "alegria", "openclassrooms", "my digital school", "epitech", "aurlom",
+  "dsti", "school", "école", "ecole", "campus", "formation", "ifocop", "studi",
 ];
 
 export async function GET(req) {
@@ -41,26 +57,35 @@ export async function GET(req) {
       const offers = await fetchOffers(customQuery, customLocation, count);
       allOffers = offers;
     } else {
-      // Multiple predefined searches for variety
-      for (const search of SEARCHES) {
-        const offers = await fetchOffers(
-          search.query,
-          "Paris",
-          search.count ?? 2,
-          search.category
-        );
-        allOffers.push(...offers);
-      }
+      // Parallèle plutôt que séquentiel : Adzuna gère, et c'est ~10x plus rapide
+      const results = await Promise.all(
+        SEARCHES.map((s) =>
+          fetchOffers(s.query, "Paris", s.count ?? 2, s.category, s.tag)
+        )
+      );
+      allOffers = results.flat();
     }
 
-    // Deduplicate by title
+    // Filtrage écoles/formations côté serveur (avant déduplication)
+    allOffers = allOffers.filter((o) => {
+      const c = (o.company || "").toLowerCase();
+      const t = (o.title || "").toLowerCase();
+      if (SCHOOL_BLOCKLIST.some((k) => c.includes(k))) return false;
+      if (t.includes("formation") || t.includes("école") || t.includes("ecole")) return false;
+      return true;
+    });
+
+    // Déduplication par (titre + entreprise) plutôt que titre seul
     const seen = new Set();
-    const unique = allOffers.filter(o => {
-      const key = o.title.toLowerCase().slice(0, 40);
+    const unique = allOffers.filter((o) => {
+      const key = `${o.title.toLowerCase().slice(0, 60)}|${(o.company || "").toLowerCase()}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+
+    // Tri par date (récent en premier) pour que /alternance et le widget aient un ordre stable
+    unique.sort((a, b) => parseFrDate(b.postedAt) - parseFrDate(a.postedAt));
 
     return NextResponse.json({ offers: unique, total: unique.length });
   } catch (e) {
@@ -69,7 +94,7 @@ export async function GET(req) {
   }
 }
 
-async function fetchOffers(query, location, count, category) {
+async function fetchOffers(query, location, count, category, tag) {
   const url = new URL("https://api.adzuna.com/v1/api/jobs/fr/search/1");
   url.searchParams.set("app_id", APP_ID);
   url.searchParams.set("app_key", APP_KEY);
@@ -86,10 +111,8 @@ async function fetchOffers(query, location, count, category) {
     return [];
   }
 
-  const isTech = category === "it-jobs" || query.includes("développeur") || query.includes("data") || query.includes("cyber") || query.includes("cloud") || query.includes("intelligence artificielle");
-
   const data = await res.json();
-  return (data.results ?? []).map(job => {
+  return (data.results ?? []).map((job) => {
     const title = cleanTitle(job.title ?? "");
     const description = cleanHtml(job.description ?? "");
     return {
@@ -101,10 +124,25 @@ async function fetchOffers(query, location, count, category) {
       url: shortenUrl(job.redirect_url ?? ""),
       salary: job.salary_min ? `${Math.round(job.salary_min)}€/an` : "",
       postedAt: job.created ? new Date(job.created).toLocaleDateString("fr-FR") : "",
-      category: isTech ? "tech" : "marketing",
+      // Le `tag` de la query est prioritaire (intent connu) ; sinon fallback sur catégorie Adzuna + heuristique
+      category: tag ?? detectCategory(category, title, description),
       level: detectLevel(title, description),
     };
   });
+}
+
+function detectCategory(adzunaCat, title, description) {
+  if (adzunaCat === "it-jobs") return "tech";
+  const text = (title + " " + description).toLowerCase();
+  const techKeys = ["développeur", "developer", "fullstack", "front-end", "back-end", "data", "devops", "cloud", "cyber", "ia ", "intelligence artificielle", "machine learning", "product manager"];
+  if (techKeys.some((k) => text.includes(k))) return "tech";
+  return "marketing";
+}
+
+function parseFrDate(s) {
+  if (!s) return 0;
+  const [d, m, y] = s.split("/");
+  return new Date(`${y}-${m}-${d}`).getTime() || 0;
 }
 
 function detectLevel(title, description) {

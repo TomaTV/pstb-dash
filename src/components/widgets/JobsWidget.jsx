@@ -111,27 +111,41 @@ export default function JobsWidget({ widget, mode = "grid" }) {
   const activeLevel = LEVELS[levelIdx];
 
   const manualOffers = (d.offers ?? []).filter(o => o.title);
-  const allOffers = manualOffers.length > 0 ? manualOffers : apiOffers;
+  const rawOffers = manualOffers.length > 0 ? manualOffers : apiOffers;
 
-  const filteredOffers = allOffers.filter(o => {
+  // Même filtrage anti-spam que la page /alternance : on retire les écoles & organismes de formation
+  const cleanedOffers = rawOffers.filter(o => {
+    const company = (o.company || "").toLowerCase();
+    const title = (o.title || "").toLowerCase();
+    const isSchool =
+      company.includes("iscod") || company.includes("alegria") ||
+      company.includes("openclassrooms") || company.includes("my digital school") ||
+      company.includes("epitech") || company.includes("aurlom") || company.includes("dsti") ||
+      company.includes("school") || company.includes("école") || company.includes("ecole") ||
+      company.includes("campus") || company.includes("formation");
+    const isFormation =
+      title.includes("formation") || title.includes("école") || title.includes("ecole");
+    return !isSchool && !isFormation;
+  });
+
+  // Tri par date (postedAt format dd/mm/yyyy) pour pousser les offres récentes en haut
+  const sortedOffers = [...cleanedOffers].sort((a, b) => {
+    const toTs = (s) => {
+      if (!s) return 0;
+      const [d2, m, y] = s.split("/");
+      return new Date(`${y}-${m}-${d2}`).getTime() || 0;
+    };
+    return toTs(b.postedAt) - toTs(a.postedAt);
+  });
+
+  const filteredOffers = sortedOffers.filter(o => {
     if (activeLevel.key !== "all" && o.level !== activeLevel.key) return false;
     return true;
   });
 
-  // Split by category for the 2-column layout
-  const techOffers = filteredOffers.filter(o => {
-    if (o.category) return o.category === "tech";
-    const t = (o.title + " " + o.company).toLowerCase();
-    return t.includes("dev") || t.includes("data") || t.includes("tech") || t.includes("fullstack") ||
-           t.includes("ia") || t.includes("cyber") || t.includes("cloud");
-  }).slice(0, 6);
-
-  const marketingOffers = filteredOffers.filter(o => {
-    if (o.category) return o.category !== "tech";
-    const t = (o.title + " " + o.company).toLowerCase();
-    return !(t.includes("dev") || t.includes("data") || t.includes("tech") || t.includes("fullstack") ||
-           t.includes("ia") || t.includes("cyber") || t.includes("cloud"));
-  }).slice(0, 6);
+  // Split via le category renvoyé par l'API (plus fiable que le regex sur le titre)
+  const techOffers = filteredOffers.filter(o => o.category === "tech").slice(0, 6);
+  const marketingOffers = filteredOffers.filter(o => o.category === "marketing").slice(0, 6);
 
   const displayedCount = techOffers.length + marketingOffers.length;
 
