@@ -278,8 +278,10 @@ function OfferCard({ offer, index }) {
         )}
 
         <div className="text-[9px] uppercase tracking-[0.2em] text-white/50 font-bold border-t border-white/[0.08] pt-3 flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400/60" />
-          Source : Adzuna
+          <span className={`w-1.5 h-1.5 rounded-full ${
+            offer.source === "francetravail" ? "bg-blue-400/70" : "bg-amber-400/60"
+          }`} />
+          Source : {offer.source === "francetravail" ? "France Travail" : "Adzuna"}
         </div>
       </div>
 

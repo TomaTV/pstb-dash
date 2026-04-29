@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 
 /*
- * Adzuna API — Alternances Tech & Marketing à Paris
- * Free tier · https://developer.adzuna.com/docs/search
+ * 2 sources d'offres alternance — fusionnées avec dédup :
+ *   1. Adzuna (clés ADZUNA_*)               · https://developer.adzuna.com
+ *   2. France Travail (clés FRANCETRAVAIL_*) · https://francetravail.io
  */
 const APP_ID = process.env.ADZUNA_APP_ID ?? "";
 const APP_KEY = process.env.ADZUNA_APP_KEY ?? "";
+const FT_CLIENT_ID = process.env.FRANCETRAVAIL_CLIENT_ID ?? "";
+const FT_CLIENT_SECRET = process.env.FRANCETRAVAIL_CLIENT_SECRET ?? "";
 
 // Queries calées sur les programmes PST&B (Bachelor + Mastère, filière Tech & filière Business/Marketing)
 // https://pstb.fr — Tech : Dev Web/Mobile, Data/IA, Cyber, Cloud · Business : Marketing Digital, Growth, Business Dev, Communication
@@ -50,23 +53,24 @@ const FETCH_TIMEOUT_MS = 8000;
 const MAX_OFFERS = 1000;
 
 export async function GET(req) {
-  if (!APP_ID || !APP_KEY) {
-    return NextResponse.json({
-      error: "Set ADZUNA_APP_ID and ADZUNA_APP_KEY in .env.local",
-      offers: [],
-    });
-  }
-
   const { searchParams } = new URL(req.url);
   const customQuery = searchParams.get("q");
   const customLocation = searchParams.get("where") ?? "Paris";
   const count = Number(searchParams.get("count") ?? "6");
   const force = searchParams.get("refresh") === "1";
+  const reset = searchParams.get("reset") === "1";
+  if (reset) {
+    cumulativeOffers = [];
+    lastFetch = 0;
+  }
 
-  // Query custom = direct, pas de cache (rare, à la demande)
+  // Query custom = direct Adzuna only, pas de cache (rare, à la demande)
   if (customQuery) {
+    if (!APP_ID || !APP_KEY) {
+      return NextResponse.json({ error: "Adzuna keys missing", offers: [] });
+    }
     try {
-      const offers = await fetchOffers(customQuery, customLocation, count);
+      const offers = await fetchAdzunaOffers(customQuery, customLocation, count);
       return NextResponse.json({ offers, total: offers.length });
     } catch (e) {
       return NextResponse.json({ error: e.message, offers: [] });
@@ -79,26 +83,21 @@ export async function GET(req) {
 
   if (shouldFetch) {
     try {
-      const results = await Promise.all(
-        SEARCHES.map((s) =>
-          fetchOffers(s.query, "Paris", s.count ?? 2, s.category, s.tag)
-        )
-      );
-      const fresh = results
-        .flat()
-        .filter((o) => {
-          const c = (o.company || "").toLowerCase();
-          const t = (o.title || "").toLowerCase();
-          if (SCHOOL_BLOCKLIST.some((k) => c.includes(k))) return false;
-          if (t.includes("formation") || t.includes("école") || t.includes("ecole")) return false;
-          return true;
-        });
+      // Lance les 2 sources en parallèle. Chaque source fail-soft → []
+      const [adzuna, ftravail] = await Promise.all([
+        fetchAllAdzuna(),
+        fetchAllFranceTravail(),
+      ]);
 
-      // ── Merge cumulatif ──
-      // On parcourt fresh d'abord (priorité aux nouvelles infos comme la
-      // date ou le salaire qui peuvent avoir été mises à jour), puis le
-      // cumulatif. La déduplication par (titre+entreprise) garantit qu'on
-      // ne double pas une offre déjà connue.
+      const fresh = [...adzuna, ...ftravail].filter((o) => {
+        const c = (o.company || "").toLowerCase();
+        const t = (o.title || "").toLowerCase();
+        if (SCHOOL_BLOCKLIST.some((k) => c.includes(k))) return false;
+        if (t.includes("formation") || t.includes("école") || t.includes("ecole")) return false;
+        return true;
+      });
+
+      // ── Merge cumulatif (dédup titre+entreprise) ──
       const seen = new Set();
       const merged = [];
       for (const offer of [...fresh, ...cumulativeOffers]) {
@@ -108,35 +107,58 @@ export async function GET(req) {
         merged.push(offer);
       }
 
-      // Tri stable : date desc + titre alphabétique en tiebreaker
       merged.sort((a, b) => {
         const dt = parseFrDate(b.postedAt) - parseFrDate(a.postedAt);
         if (dt !== 0) return dt;
         return (a.title || "").localeCompare(b.title || "");
       });
 
-      // On garde le cumulatif uniquement si fresh a renvoyé qqch
-      // (sinon on évite d'écraser un bon cache à cause d'un Adzuna down)
       if (fresh.length > 0 || isCold) {
         cumulativeOffers = merged.slice(0, MAX_OFFERS);
         lastFetch = Date.now();
       }
+
+      return NextResponse.json({
+        offers: cumulativeOffers,
+        total: cumulativeOffers.length,
+        sources: { adzuna: adzuna.length, francetravail: ftravail.length },
+        refreshed: true,
+        ageSeconds: 0,
+      });
     } catch (e) {
       console.error("[Jobs API]", e.message);
-      // Fail soft : on garde le cumulatif existant et on continue
+      // Fail soft : on garde le cumulatif existant
     }
   }
 
   return NextResponse.json({
     offers: cumulativeOffers,
     total: cumulativeOffers.length,
-    cached: !shouldFetch,
-    refreshed: shouldFetch,
+    cached: true,
     ageSeconds: lastFetch ? Math.round((Date.now() - lastFetch) / 1000) : null,
   });
 }
 
-async function fetchOffers(query, location, count, category, tag) {
+// ════════════════════════════════════════════════════════════════════
+//   ADZUNA
+// ════════════════════════════════════════════════════════════════════
+
+async function fetchAllAdzuna() {
+  if (!APP_ID || !APP_KEY) return [];
+  try {
+    const results = await Promise.all(
+      SEARCHES.map((s) =>
+        fetchAdzunaOffers(s.query, "Paris", s.count ?? 2, s.category, s.tag)
+      )
+    );
+    return results.flat();
+  } catch (e) {
+    console.warn("[Adzuna] all-fetch failed:", e.message);
+    return [];
+  }
+}
+
+async function fetchAdzunaOffers(query, location, count, category, tag) {
   const url = new URL("https://api.adzuna.com/v1/api/jobs/fr/search/1");
   url.searchParams.set("app_id", APP_ID);
   url.searchParams.set("app_key", APP_KEY);
@@ -146,7 +168,6 @@ async function fetchOffers(query, location, count, category, tag) {
   url.searchParams.set("sort_by", "date");
   if (category) url.searchParams.set("category", category);
 
-  // 1 retry avec timeout — évite qu'une query lente fasse perdre toutes ses offres
   const data = await fetchWithRetry(url.toString(), query);
   if (!data) return [];
   return (data.results ?? []).map((job) => {
@@ -161,12 +182,138 @@ async function fetchOffers(query, location, count, category, tag) {
       url: shortenUrl(job.redirect_url ?? ""),
       salary: job.salary_min ? `${Math.round(job.salary_min)}€/an` : "",
       postedAt: job.created ? new Date(job.created).toLocaleDateString("fr-FR") : "",
-      // Le `tag` de la query est prioritaire (intent connu) ; sinon fallback sur catégorie Adzuna + heuristique
       category: tag ?? detectCategory(category, title, description),
       level: detectLevel(title, description),
+      source: "adzuna",
     };
   });
 }
+
+// ════════════════════════════════════════════════════════════════════
+//   FRANCE TRAVAIL — OAuth2 client_credentials + Offres v2
+// ════════════════════════════════════════════════════════════════════
+
+let ftToken = null;
+let ftTokenExpiry = 0;
+
+async function getFtToken() {
+  if (ftToken && Date.now() < ftTokenExpiry) return ftToken;
+  if (!FT_CLIENT_ID || !FT_CLIENT_SECRET) return null;
+
+  try {
+    const body = new URLSearchParams({
+      grant_type: "client_credentials",
+      client_id: FT_CLIENT_ID,
+      client_secret: FT_CLIENT_SECRET,
+      scope: "api_offresdemploiv2 o2dsoffre",
+    });
+    const res = await fetch(
+      "https://entreprise.francetravail.fr/connexion/oauth2/access_token?realm=%2Fpartenaire",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      }
+    );
+    if (!res.ok) {
+      console.warn("[FranceTravail] OAuth failed:", res.status);
+      return null;
+    }
+    const data = await res.json();
+    ftToken = data.access_token;
+    // expires_in en secondes, on garde une marge de 60s
+    ftTokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
+    return ftToken;
+  } catch (e) {
+    console.warn("[FranceTravail] OAuth error:", e.message);
+    return null;
+  }
+}
+
+// Codes ROME calés sur les programmes PST&B — Tech & Marketing/Business
+// Tech élargi : dev, prod SI, expert SI, conseil SI, contenus multimédia, admin SI
+const FT_ROME_TECH = ["M1805", "M1810", "M1802", "M1806", "M1801", "E1104", "E1101"];
+// Marketing resserré : marketing, communication, stratégie commerciale, relation client, e-commerce
+const FT_ROME_MARKETING = ["M1705", "E1103", "M1707", "M1704", "D1402"];
+// natureContrat : E2 (apprentissage) + FS (professionnalisation) — on cible alternance
+const FT_NATURE_CONTRAT = "E2,FS";
+
+async function fetchAllFranceTravail() {
+  const token = await getFtToken();
+  if (!token) return [];
+
+  // 2 requêtes : tech + marketing. On limite à 100 résultats par requête (max 150)
+  const queries = [
+    { romes: FT_ROME_TECH, tag: "tech" },
+    { romes: FT_ROME_MARKETING, tag: "marketing" },
+  ];
+
+  try {
+    const results = await Promise.all(
+      queries.map((q) => fetchFranceTravailOffers(token, q.romes, q.tag))
+    );
+    return results.flat();
+  } catch (e) {
+    console.warn("[FranceTravail] all-fetch failed:", e.message);
+    return [];
+  }
+}
+
+async function fetchFranceTravailOffers(token, romes, tag) {
+  const url = new URL("https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search");
+  url.searchParams.set("natureContrat", FT_NATURE_CONTRAT);
+  url.searchParams.set("codeROME", romes.join(","));
+  url.searchParams.set("departement", "75");
+  url.searchParams.set("range", "0-99");
+  url.searchParams.set("sort", "1"); // tri par date
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      signal: ctrl.signal,
+      next: { revalidate: 600 },
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      console.warn("[FranceTravail] search", res.status, "for", tag, "·", txt.slice(0, 300));
+      return [];
+    }
+    const data = await res.json();
+    return (data.resultats ?? []).map((job) => {
+      const title = cleanTitle(job.intitule ?? "");
+      const description = cleanHtml(job.description ?? "");
+      const lieu = job.lieuTravail?.libelle ?? "Paris";
+      const company = job.entreprise?.nom || "Entreprise";
+      const dateCreated = job.dateCreation ? new Date(job.dateCreation).toLocaleDateString("fr-FR") : "";
+      const salary =
+        job.salaire?.libelle?.replace(/\s+/g, " ").trim().slice(0, 40) || "";
+      // Classement par ROME du job lui-même (plus précis que le tag de la query)
+      const rome = (job.romeCode || "").toUpperCase();
+      const cat = classifyByRome(rome) || tag || detectCategory(null, title, description);
+      return {
+        title,
+        company,
+        location: shortenLocation(lieu),
+        contract: "Alternance",
+        description: description.slice(0, 150),
+        url: `https://candidat.francetravail.fr/offres/recherche/detail/${encodeURIComponent(job.id)}`,
+        salary,
+        postedAt: dateCreated,
+        category: cat,
+        level: detectLevel(title, description),
+        source: "francetravail",
+      };
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    console.warn("[FranceTravail] fetch error:", e.message);
+    return [];
+  }
+}
+
 
 async function fetchWithRetry(urlString, label) {
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -194,9 +341,22 @@ async function fetchWithRetry(urlString, label) {
 function detectCategory(adzunaCat, title, description) {
   if (adzunaCat === "it-jobs") return "tech";
   const text = (title + " " + description).toLowerCase();
-  const techKeys = ["développeur", "developer", "fullstack", "front-end", "back-end", "data", "devops", "cloud", "cyber", "ia ", "intelligence artificielle", "machine learning", "product manager"];
+  const techKeys = ["développeur", "developer", "dev ", "fullstack", "front-end", "back-end", "frontend", "backend", "data", "devops", "cloud", "cyber", "ia ", "intelligence artificielle", "machine learning", "product manager", "qa ", "site reliability", "sre", "sécurité informatique"];
   if (techKeys.some((k) => text.includes(k))) return "tech";
   return "marketing";
+}
+
+// Classement direct via code ROME — beaucoup plus précis que les heuristiques.
+// M180x = informatique, E1101/E1104 = web/multimédia → tech
+// M170x, E1103 = marketing/communication → marketing
+function classifyByRome(rome) {
+  if (!rome) return null;
+  if (/^M180/.test(rome)) return "tech";
+  if (rome === "M1801" || rome === "M1802" || rome === "M1805" || rome === "M1806" || rome === "M1810" || rome === "M1811") return "tech";
+  if (rome === "E1101" || rome === "E1104") return "tech";
+  if (rome === "M1705" || rome === "M1704" || rome === "M1707" || rome === "E1103" || rome === "D1402") return "marketing";
+  if (/^M17/.test(rome)) return "marketing";
+  return null;
 }
 
 function parseFrDate(s) {
