@@ -13,7 +13,8 @@
       "Bash(npm list *)",
       "Bash(npm run *)",
       "Bash(curl -s \"http://localhost:3000/api/bfm-stream?type=business\")",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(xargs grep *)"
     ]
   }
 }

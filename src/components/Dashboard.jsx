@@ -7,6 +7,7 @@ import { useDashboard } from "@/context/DashboardContext";
 import { renderWidget } from "@/components/widgets";
 import LiveTicker from "@/components/LiveTicker";
 import BreakingNews from "@/components/BreakingNews";
+import { isTizen } from "@/lib/tizen";
 import { Calendar, BarChart3, Clock, Newspaper, Sparkles, FileText, Quote as QuoteIcon } from "lucide-react";
 
 const WIDGET_META = {
@@ -31,14 +32,18 @@ const PersistentClock = memo(function PersistentClock() {
     const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
+  const fmt = (fn) => { try { return fn(); } catch { return null; } };
   const time = now
-    ? now.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" })
+    ? (fmt(() => now.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", hour: "2-digit", minute: "2-digit" }))
+       ?? now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }))
     : "--:--";
   const secs = now
-    ? now.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", second: "2-digit" })
+    ? (fmt(() => now.toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris", second: "2-digit" }))
+       ?? now.toLocaleTimeString("fr-FR", { second: "2-digit" }))
     : "--";
   const dateStr = now
-    ? now.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long" })
+    ? (fmt(() => now.toLocaleDateString("fr-FR", { timeZone: "Europe/Paris", weekday: "long", day: "numeric", month: "long" }))
+       ?? now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }))
     : "---";
 
   return (
@@ -169,8 +174,10 @@ function FocusZone({ viewMode }) {
   } = useDashboard();
   const tickerBottom = settings?.ticker?.enabled && (settings?.ticker?.position ?? "bottom") === "bottom";
   const tickerTop = settings?.ticker?.enabled && settings?.ticker?.position === "top";
-  const bottomOffset = tickerBottom ? 56 : 24; // 44px ticker + 12px breathing room
+  const bottomOffset = tickerBottom ? 56 : 24;
   const topOffset = tickerTop ? 56 : 24;
+  const tizenRef = useRef(false);
+  useEffect(() => { tizenRef.current = isTizen(); }, []);
 
   const { autoRotate, rotateInterval } = settings;
   const progress = useMotionValue(0);
@@ -398,10 +405,10 @@ function FocusZone({ viewMode }) {
                 "--safe-bottom": safeBottom,
                 willChange: "transform, opacity, filter",
               }}
-              initial={{ opacity: 0, filter: "blur(16px)" }}
-              animate={{ opacity: 1, filter: "blur(0px)" }}
-              exit={{ opacity: 0, filter: "blur(10px)", transition: { duration: 0.18 } }}
-              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+              initial={tizenRef.current ? { opacity: 0 } : { opacity: 0, filter: "blur(16px)" }}
+              animate={tizenRef.current ? { opacity: 1 } : { opacity: 1, filter: "blur(0px)" }}
+              exit={tizenRef.current ? { opacity: 0 } : { opacity: 0, filter: "blur(10px)", transition: { duration: 0.18 } }}
+              transition={{ duration: tizenRef.current ? 0.15 : 0.55, ease: [0.22, 1, 0.36, 1] }}
             >
               {renderWidget(focusedWidget, "focus")}
             </motion.div>
@@ -483,10 +490,10 @@ function FocusZone({ viewMode }) {
                 key={focusedWidget.id}
                 className="absolute inset-0 rounded-3xl overflow-hidden border border-white/10 bg-bg shadow-[0_0_80px_-15px_rgba(255,23,68,0.15)] ring-1 ring-white/5"
                 style={{ willChange: "transform, opacity, filter" }}
-                initial={{ opacity: 0, scale: 0.95, filter: "blur(15px)" }}
-                animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-                exit={{ opacity: 0, scale: 1.05, filter: "blur(10px)", transition: { duration: 0.3 } }}
-                transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                initial={tizenRef.current ? { opacity: 0, scale: 0.95 } : { opacity: 0, scale: 0.95, filter: "blur(15px)" }}
+                animate={tizenRef.current ? { opacity: 1, scale: 1 } : { opacity: 1, scale: 1, filter: "blur(0px)" }}
+                exit={tizenRef.current ? { opacity: 0 } : { opacity: 0, scale: 1.05, filter: "blur(10px)", transition: { duration: 0.3 } }}
+                transition={{ duration: tizenRef.current ? 0.15 : 0.7, ease: [0.22, 1, 0.36, 1] }}
               >
                 {renderWidget(focusedWidget, "focus")}
               </motion.div>

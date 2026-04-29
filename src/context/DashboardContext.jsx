@@ -81,6 +81,8 @@ export function DashboardProvider({ children }) {
   const reconnectTimerRef = useRef(null);
   const reconnectDelayRef = useRef(3000);
   const sseErrorCountRef = useRef(0);
+  const pollingTimerRef = useRef(null);
+  const usingPollingRef = useRef(false);
   const [widgets,     setWidgets]     = useState(DEFAULT_WIDGETS);
   const [settings,    setSettings]    = useState(DEFAULT_SETTINGS);
   const [focusedId,   setFocusedId]   = useState(null);
@@ -148,54 +150,68 @@ export function DashboardProvider({ children }) {
       }
     };
 
+    const applyDb = (db) => {
+      if (!isMounted) return;
+      fullDbRef.current = db;
+      const wKey = activeScreenId === "main" ? "widgets" : `widgets_${activeScreenId}`;
+      const sKey = activeScreenId === "main" ? "settings" : `settings_${activeScreenId}`;
+      if (Array.isArray(db[wKey]) || Array.isArray(db.widgets)) {
+        setWidgets(prev => (areWidgetsEqual(prev, db[wKey] || DEFAULT_WIDGETS) ? prev : (db[wKey] || DEFAULT_WIDGETS)));
+      }
+      if (db[sKey] || db.settings) {
+        setSettings(prev => (areSettingsEqual(prev, db[sKey] || DEFAULT_SETTINGS) ? prev : (db[sKey] || DEFAULT_SETTINGS)));
+      }
+      hydratedRef.current = true;
+      setHydrated(true);
+      if (pendingSaveRef.current) {
+        const p = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        fetch("/api/dashboard", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(p) }).catch(() => {});
+      }
+    };
+
+    const startPolling = () => {
+      if (usingPollingRef.current) return;
+      usingPollingRef.current = true;
+      const poll = () => {
+        if (!isMounted) return;
+        fetch("/api/dashboard")
+          .then(r => r.ok ? r.json() : null)
+          .then(db => { if (db) applyDb(db); })
+          .catch(() => {})
+          .finally(() => { if (isMounted) pollingTimerRef.current = setTimeout(poll, 5000); });
+      };
+      poll();
+    };
+
     const connectSSE = () => {
+      if (usingPollingRef.current) return;
       clearReconnectTimer();
+      // Tizen / vieux navigateurs peuvent ne pas supporter EventSource
+      if (typeof EventSource === "undefined") { startPolling(); return; }
       eventSource = new EventSource("/api/stream");
       eventSource.onopen = () => {
         reconnectDelayRef.current = 3000;
         sseErrorCountRef.current = 0;
       };
-      
+
       eventSource.onmessage = (event) => {
-        if (!isMounted) return;
         try {
-          const db = JSON.parse(event.data);
-          fullDbRef.current = db; // Store full DB for fast switching
-          
-          const wKey = activeScreenId === "main" ? "widgets" : `widgets_${activeScreenId}`;
-          const sKey = activeScreenId === "main" ? "settings" : `settings_${activeScreenId}`;
-          
-          if (Array.isArray(db[wKey]) || Array.isArray(db.widgets)) {
-            setWidgets(prev => (areWidgetsEqual(prev, db[wKey] || DEFAULT_WIDGETS) ? prev : (db[wKey] || DEFAULT_WIDGETS)));
-          }
-          if (db[sKey] || db.settings) {
-            setSettings(prev => (areSettingsEqual(prev, db[sKey] || DEFAULT_SETTINGS) ? prev : (db[sKey] || DEFAULT_SETTINGS)));
-          }
-          hydratedRef.current = true;
-          setHydrated(true);
-          if (pendingSaveRef.current) {
-            const p = pendingSaveRef.current;
-            pendingSaveRef.current = null;
-            fetch("/api/dashboard", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(p),
-            }).catch(() => {});
-          }
+          applyDb(JSON.parse(event.data));
         } catch (e) {
           console.error("SSE parse error", e);
         }
       };
 
-      eventSource.onerror = (err) => {
+      eventSource.onerror = () => {
         eventSource.close();
         if (!isMounted) return;
         sseErrorCountRef.current += 1;
-        if (sseErrorCountRef.current >= 3) {
-          console.warn("SSE reconnecting", {
-            retries: sseErrorCountRef.current,
-            delayMs: reconnectDelayRef.current,
-          });
+        // Après 2 échecs consécutifs, basculer en polling (ex : Tizen)
+        if (sseErrorCountRef.current >= 2) {
+          console.warn("SSE unavailable, switching to polling");
+          startPolling();
+          return;
         }
         const jitter = Math.floor(Math.random() * 1000);
         reconnectTimerRef.current = setTimeout(connectSSE, reconnectDelayRef.current + jitter);
@@ -209,6 +225,8 @@ export function DashboardProvider({ children }) {
       isMounted = false;
       clearReconnectTimer();
       if (eventSource) eventSource.close();
+      if (pollingTimerRef.current) { clearTimeout(pollingTimerRef.current); pollingTimerRef.current = null; }
+      usingPollingRef.current = false;
     };
   }, [pathname, activeScreenId]);
 
