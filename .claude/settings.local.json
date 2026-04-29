@@ -12,7 +12,8 @@
       "Bash(node -e \"const m = require\\('lucide-react'\\); console.log\\('Linkedin?', typeof m.Linkedin, 'Instagram?', typeof m.Instagram, 'Brain?', typeof m.Brain, 'PartyPopper?', typeof m.PartyPopper, 'Images?', typeof m.Images, 'TrendingDown?', typeof m.TrendingDown, 'CloudFog?', typeof m.CloudFog, 'CloudDrizzle?', typeof m.CloudDrizzle\\); console.log\\('version:', require\\('lucide-react/package.json'\\).version\\)\")",
       "Bash(npm list *)",
       "Bash(npm run *)",
-      "Bash(curl -s \"http://localhost:3000/api/bfm-stream?type=business\")"
+      "Bash(curl -s \"http://localhost:3000/api/bfm-stream?type=business\")",
+      "Bash(npx tsc *)"
     ]
   }
 }

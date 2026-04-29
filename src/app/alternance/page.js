@@ -25,6 +25,13 @@ const CATEGORIES = [
   { key: "marketing", label: "Marketing & Business" },
 ];
 
+const LEVELS = [
+  { key: "all", label: "Tous niveaux" },
+  { key: "bts", label: "BTS / BUT" },
+  { key: "bachelor", label: "Bachelor / Bac+3" },
+  { key: "mastere", label: "Mastère / Bac+5" },
+];
+
 const CLAUDE_ALTERNANCE_PROMPT = `Tu es un coach de carrière expert et un spécialiste du recrutement en France, particulièrement pour les profils hybrides, Tech et Business. >
 Mon objectif est de trouver une alternance. Je suis étudiant(e) à la PST&B (Paris School of Technology & Business), une école qui forme aux doubles compétences en technologie et en commerce.
 
@@ -221,6 +228,11 @@ function OfferCard({ offer, index }) {
                 )}
                 {offer.category === "tech" ? "Tech" : "Marketing"}
               </span>
+              {offer.level && (
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border bg-amber-500/15 text-amber-400 border-amber-500/25">
+                  {offer.level === "bts" ? "BTS/BUT" : offer.level === "bachelor" ? "Bachelor" : "Mastère"}
+                </span>
+              )}
               {isNew && (
                 <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.2em] px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-400 border-emerald-500/25">
                   Nouveau
@@ -323,6 +335,7 @@ export default function AlternancePage() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [level, setLevel] = useState("all");
   const [sortBy, setSortBy] = useState("date");
   const [refreshKey, setRefreshKey] = useState(0);
   const [isClaudeModalOpen, setIsClaudeModalOpen] = useState(false);
@@ -371,6 +384,7 @@ export default function AlternancePage() {
     });
 
     if (category !== "all") list = list.filter((o) => o.category === category);
+    if (level !== "all") list = list.filter((o) => o.level === level);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -388,7 +402,7 @@ export default function AlternancePage() {
       });
     }
     return list;
-  }, [offers, category, search, sortBy]);
+  }, [offers, category, level, search, sortBy]);
 
   const techCount = offers.filter((o) => o.category === "tech").length;
   const mktCount = offers.filter((o) => o.category === "marketing").length;
@@ -485,6 +499,24 @@ export default function AlternancePage() {
                 ))}
               </div>
 
+              <div className="w-px h-5 bg-white/10 hidden sm:block" />
+
+              <div className="flex items-center gap-1.5">
+                {LEVELS.map((l) => (
+                  <button
+                    key={l.key}
+                    onClick={() => setLevel(l.key)}
+                    className={`text-[11px] font-bold px-3 py-2 rounded-lg transition-all duration-200 ${
+                      level === l.key
+                        ? "bg-amber-500/80 text-white shadow-[0_0_14px_rgba(245,158,11,0.35)]"
+                        : "bg-white/[0.04] border border-white/[0.07] text-white/40 hover:text-white hover:bg-white/[0.07]"
+                    }`}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </div>
+
               <div className="relative">
                 <select
                   value={sortBy}
@@ -544,6 +576,7 @@ export default function AlternancePage() {
                     onClick={() => {
                       setSearch("");
                       setCategory("all");
+                      setLevel("all");
                     }}
                     className="text-xs text-violet hover:underline"
                   >

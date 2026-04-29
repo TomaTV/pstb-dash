@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import QRCode from "react-qr-code";
 import WidgetWrapper from "@/components/WidgetWrapper";
 import { useDashboard } from "@/context/DashboardContext";
-import { Briefcase, MapPin, Building2, Code2, Megaphone } from "lucide-react";
+import { Briefcase, MapPin, Code2, Megaphone } from "lucide-react";
 
 function OfferCard({ offer }) {
   const qrUrl = offer.url || "https://pstb.fr";
@@ -49,10 +49,23 @@ function CategorySection({ icon: Icon, title, offers }) {
 let cachedOffers = null;
 let lastFetch = 0;
 
+const LEVELS = [
+  { key: "all", label: "Tous niveaux", color: "text-white/60" },
+  { key: "bts", label: "BTS / BUT", color: "text-sky-400" },
+  { key: "bachelor", label: "Bachelor · Bac+3", color: "text-violet" },
+  { key: "mastere", label: "Mastère · Bac+5", color: "text-amber-400" },
+];
+
+// Rotation toutes les 8 secondes
+const LEVEL_ROTATION_MS = 8_000;
+
 export default function JobsWidget({ widget, mode = "grid" }) {
   const { focusWidget } = useDashboard();
   const d = widget.data ?? {};
   const [apiOffers, setApiOffers] = useState(cachedOffers || []);
+  const [levelIdx, setLevelIdx] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const tickRef = useRef(null);
 
   const fetchJobs = useCallback(async () => {
     if (cachedOffers && Date.now() - lastFetch < 600_000) {
@@ -79,23 +92,46 @@ export default function JobsWidget({ widget, mode = "grid" }) {
     return () => clearInterval(interval);
   }, [fetchJobs]);
 
+  // Rotation automatique des niveaux + barre de progression
+  useEffect(() => {
+    const step = 100;
+    let elapsed = 0;
+    tickRef.current = setInterval(() => {
+      elapsed += step;
+      setProgress(Math.min((elapsed / LEVEL_ROTATION_MS) * 100, 100));
+      if (elapsed >= LEVEL_ROTATION_MS) {
+        elapsed = 0;
+        setLevelIdx(i => (i + 1) % LEVELS.length);
+        setProgress(0);
+      }
+    }, step);
+    return () => clearInterval(tickRef.current);
+  }, []);
+
+  const activeLevel = LEVELS[levelIdx];
+
   const manualOffers = (d.offers ?? []).filter(o => o.title);
   const allOffers = manualOffers.length > 0 ? manualOffers : apiOffers;
 
-  // Split by category (set by API, fallback to keyword detection)
-  const techOffers = allOffers.filter(o => {
+  const filteredOffers = allOffers.filter(o => {
+    if (activeLevel.key !== "all" && o.level !== activeLevel.key) return false;
+    return true;
+  });
+
+  // Split by category for the 2-column layout
+  const techOffers = filteredOffers.filter(o => {
     if (o.category) return o.category === "tech";
     const t = (o.title + " " + o.company).toLowerCase();
     return t.includes("dev") || t.includes("data") || t.includes("tech") || t.includes("fullstack") ||
            t.includes("ia") || t.includes("cyber") || t.includes("cloud");
-  }).slice(0, 5);
-  
-  const marketingOffers = allOffers.filter(o => {
+  }).slice(0, 6);
+
+  const marketingOffers = filteredOffers.filter(o => {
     if (o.category) return o.category !== "tech";
     const t = (o.title + " " + o.company).toLowerCase();
     return !(t.includes("dev") || t.includes("data") || t.includes("tech") || t.includes("fullstack") ||
            t.includes("ia") || t.includes("cyber") || t.includes("cloud"));
-  }).slice(0, 5);
+  }).slice(0, 6);
 
   const displayedCount = techOffers.length + marketingOffers.length;
 
@@ -124,7 +160,7 @@ export default function JobsWidget({ widget, mode = "grid" }) {
 
             <div className="relative z-10 h-full w-full flex flex-col px-14 py-10">
               {/* Header */}
-              <div className="flex items-center justify-between mb-8 shrink-0">
+              <div className="flex items-center justify-between mb-5 shrink-0">
                 <div className="flex items-center gap-4">
                   <div className="p-3 rounded-2xl bg-violet/10 border border-violet/20">
                     <Briefcase className="w-6 h-6 text-violet" />
@@ -138,6 +174,30 @@ export default function JobsWidget({ widget, mode = "grid" }) {
                 </div>
                 <div className="text-sm font-bold text-violet bg-violet/10 px-5 py-2 rounded-full border border-violet/20">
                   {displayedCount} offre{displayedCount > 1 ? "s" : ""}
+                </div>
+              </div>
+
+              {/* Level rotation indicator */}
+              <div className="flex items-center gap-4 mb-6 shrink-0">
+                <div className="flex items-center gap-2">
+                  {LEVELS.map((l, i) => (
+                    <div key={l.key} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-500 ${
+                      i === levelIdx
+                        ? "bg-white/[0.07] border-white/20"
+                        : "border-transparent opacity-30"
+                    }`}>
+                      <span className={`text-xs font-bold ${i === levelIdx ? activeLevel.color : "text-white/40"}`}>
+                        {l.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {/* Mini progress bar */}
+                <div className="flex-1 h-[2px] bg-white/[0.06] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-violet/60 rounded-full transition-none"
+                    style={{ width: `${progress}%` }}
+                  />
                 </div>
               </div>
 

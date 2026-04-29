@@ -8,12 +8,16 @@ const APP_ID = process.env.ADZUNA_APP_ID ?? "";
 const APP_KEY = process.env.ADZUNA_APP_KEY ?? "";
 
 const SEARCHES = [
-  { query: "alternance développeur", category: "it-jobs", count: 15 },
-  { query: "alternance data", category: "it-jobs", count: 10 },
-  { query: "alternance cybersécurité", category: "it-jobs", count: 10 },
-  { query: "alternance marketing", count: 15 },
-  { query: "alternance communication digitale", count: 10 },
-  { query: "alternance commerce", count: 10 },
+  { query: "alternance développeur", category: "it-jobs", count: 25 },
+  { query: "alternance data science", category: "it-jobs", count: 20 },
+  { query: "alternance cybersécurité", category: "it-jobs", count: 15 },
+  { query: "alternance cloud devops", category: "it-jobs", count: 15 },
+  { query: "alternance intelligence artificielle", category: "it-jobs", count: 15 },
+  { query: "alternance marketing digital", count: 25 },
+  { query: "alternance communication digitale", count: 20 },
+  { query: "alternance commerce business", count: 20 },
+  { query: "alternance chef de projet", count: 15 },
+  { query: "alternance ressources humaines", count: 15 },
 ];
 
 export async function GET(req) {
@@ -82,20 +86,43 @@ async function fetchOffers(query, location, count, category) {
     return [];
   }
 
-  const isTech = category === "it-jobs" || query.includes("développeur") || query.includes("data") || query.includes("cyber");
+  const isTech = category === "it-jobs" || query.includes("développeur") || query.includes("data") || query.includes("cyber") || query.includes("cloud") || query.includes("intelligence artificielle");
 
   const data = await res.json();
-  return (data.results ?? []).map(job => ({
-    title: cleanTitle(job.title ?? ""),
-    company: job.company?.display_name ?? "Entreprise",
-    location: shortenLocation(job.location?.display_name ?? location),
-    contract: "Alternance",
-    description: cleanHtml(job.description ?? "").slice(0, 150),
-    url: shortenUrl(job.redirect_url ?? ""),
-    salary: job.salary_min ? `${Math.round(job.salary_min)}€/an` : "",
-    postedAt: job.created ? new Date(job.created).toLocaleDateString("fr-FR") : "",
-    category: isTech ? "tech" : "marketing",
-  }));
+  return (data.results ?? []).map(job => {
+    const title = cleanTitle(job.title ?? "");
+    const description = cleanHtml(job.description ?? "");
+    return {
+      title,
+      company: job.company?.display_name ?? "Entreprise",
+      location: shortenLocation(job.location?.display_name ?? location),
+      contract: "Alternance",
+      description: description.slice(0, 150),
+      url: shortenUrl(job.redirect_url ?? ""),
+      salary: job.salary_min ? `${Math.round(job.salary_min)}€/an` : "",
+      postedAt: job.created ? new Date(job.created).toLocaleDateString("fr-FR") : "",
+      category: isTech ? "tech" : "marketing",
+      level: detectLevel(title, description),
+    };
+  });
+}
+
+function detectLevel(title, description) {
+  const text = (title + " " + description).toLowerCase();
+  if (
+    text.includes("mastère") || text.includes("master ") || text.includes("masters") ||
+    text.includes("bac+5") || text.includes("bac +5") || text.includes("mba") ||
+    text.includes("bac5") || text.includes("grade master")
+  ) return "mastere";
+  if (
+    text.includes("bachelor") || text.includes("bac+3") || text.includes("bac +3") ||
+    text.includes("bac3") || text.includes("licence ") || text.includes("licence pro")
+  ) return "bachelor";
+  if (
+    text.includes("bts") || text.includes("bac+2") || text.includes("bac +2") ||
+    text.includes("bac2") || text.includes(" dut ") || text.includes(" but ")
+  ) return "bts";
+  return null;
 }
 
 function cleanTitle(t) {
