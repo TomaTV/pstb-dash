@@ -89,6 +89,8 @@ export function DashboardProvider({ children }) {
 
   const [activeScreenId, setActiveScreenId] = useState("main");
   const fullDbRef = useRef({});
+  const hydratedRef = useRef(false);
+  const pendingSaveRef = useRef(null);
 
   // Parse URL ?screen= param on mount
   useEffect(() => {
@@ -101,6 +103,11 @@ export function DashboardProvider({ children }) {
 
   // ── API Sync (JSON Local DB) ──
   const saveToDB = useCallback(async (newWidgets, newSettings, screenId = activeScreenId) => {
+    if (!hydratedRef.current) {
+      // Mettre en queue jusqu'à ce que la donnée initiale soit chargée
+      pendingSaveRef.current = { widgets: newWidgets, settings: newSettings, screenId };
+      return;
+    }
     try {
       await fetch("/api/dashboard", {
         method: "POST",
@@ -126,6 +133,7 @@ export function DashboardProvider({ children }) {
 
   useEffect(() => {
     if (pathname === "/admin/login") {
+      hydratedRef.current = true;
       setHydrated(true);
       return;
     }
@@ -163,7 +171,17 @@ export function DashboardProvider({ children }) {
           if (db[sKey] || db.settings) {
             setSettings(prev => (areSettingsEqual(prev, db[sKey] || DEFAULT_SETTINGS) ? prev : (db[sKey] || DEFAULT_SETTINGS)));
           }
+          hydratedRef.current = true;
           setHydrated(true);
+          if (pendingSaveRef.current) {
+            const p = pendingSaveRef.current;
+            pendingSaveRef.current = null;
+            fetch("/api/dashboard", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(p),
+            }).catch(() => {});
+          }
         } catch (e) {
           console.error("SSE parse error", e);
         }

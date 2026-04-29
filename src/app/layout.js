@@ -9,8 +9,27 @@ const inter = Inter({
 });
 
 export const metadata = {
-  title: "PST&B — Campus Dashboard",
+  title: "Dash by PST&B — TV",
   description: "Tableau de bord dynamique du campus Paris School of Technology & Business.",
+  metadataBase: new URL("https://dash-pstb.vercel.app"),
+  openGraph: {
+    title: "Dash by PST&B — TV",
+    description: "Le tableau de bord live du campus Paris School of Technology & Business.",
+    siteName: "PST&B Dashboard",
+    locale: "fr_FR",
+    type: "website",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PST&B — Campus Dashboard",
+    description: "Le tableau de bord live du campus Paris School of Technology & Business.",
+    images: ["/og-image.png"],
+  },
+  icons: {
+    apple: "/apple-touch-icon.png",
+  },
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({ children }) {

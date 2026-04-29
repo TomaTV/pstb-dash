@@ -291,6 +291,20 @@ export default function AdminPanel() {
                 <Plus size={12} strokeWidth={3} /> Ajouter
               </button>
             </div>
+            <div className="flex gap-2 px-2 mb-2">
+              <button
+                onClick={() => { widgets.filter(w => w.status !== "pending").forEach(w => updateWidget(w.id, { focusable: true })); flash(); }}
+                className="flex-1 text-[10px] uppercase tracking-wider font-bold text-emerald-400 hover:text-white transition-colors bg-emerald-500/10 hover:bg-emerald-500/25 px-3 py-1.5 rounded-lg"
+              >
+                Tout activer
+              </button>
+              <button
+                onClick={() => { widgets.filter(w => w.status !== "pending").forEach(w => updateWidget(w.id, { focusable: false })); flash(); }}
+                className="flex-1 text-[10px] uppercase tracking-wider font-bold text-red-400 hover:text-white transition-colors bg-red-500/10 hover:bg-red-500/25 px-3 py-1.5 rounded-lg"
+              >
+                Tout désactiver
+              </button>
+            </div>
 
             <div>
               {widgets.filter(w => w.status === "pending").length > 0 && (
