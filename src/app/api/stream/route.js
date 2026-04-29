@@ -19,17 +19,19 @@ export async function GET(req) {
       };
 
       // Send initial data immediately
-      try {
-        const db = getFullDb();
-        send(`data: ${JSON.stringify(db)}\n\n`);
-      } catch (e) {
-        console.error("SSE initial data error:", e);
-      }
+      (async () => {
+        try {
+          const db = await getFullDb();
+          send(`data: ${JSON.stringify(db)}\n\n`);
+        } catch (e) {
+          console.error("SSE initial data error:", e);
+        }
+      })();
 
       // Send updates whenever db changes
-      const onDbChange = () => {
+      const onDbChange = async () => {
         try {
-          const currentDb = getFullDb();
+          const currentDb = await getFullDb();
           send(`data: ${JSON.stringify(currentDb)}\n\n`);
         } catch (e) {
           console.error("SSE update error:", e);

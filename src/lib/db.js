@@ -1,161 +1,141 @@
 import path from "path";
 import fs from "fs";
 import { EventEmitter } from "events";
+import { Redis } from "@upstash/redis";
 
-// --- Database Configuration ---
-const isVercel = process.env.VERCEL === "1";
+// ───────────────────────────────────────────────────────────────────
+// Backend : Upstash Redis (un hash unique `pstb:store` où chaque field
+// est une clé applicative). Fallback mémoire si pas de credentials —
+// utile pour les builds CI ou un dev local sans env.
+// ───────────────────────────────────────────────────────────────────
 
-// On Vercel, we must use /tmp for writable files. 
-// Otherwise, use the local data directory.
-const DATA_DIR = isVercel ? "/tmp" : path.join(process.cwd(), "data");
-const DB_PATH = path.join(DATA_DIR, "db.sqlite");
+const HASH_KEY = "pstb:store";
 const JSON_PATH = path.join(process.cwd(), "data", "db.json");
 
-// Ensure data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  } catch (e) {
-    console.error("Failed to create data directory:", e);
-  }
-}
+const hasUpstash =
+  !!process.env.UPSTASH_REDIS_REST_URL && !!process.env.UPSTASH_REDIS_REST_TOKEN;
 
-// Global instances to persist across Hot Module Replacement (HMR) and route calls
+const redis = hasUpstash
+  ? new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    })
+  : null;
+
+// EventEmitter in-process pour SSE. Cross-instance n'est pas supporté
+// (Upstash REST n'expose pas pub/sub) — c'est un compromis acceptable :
+// les écrans TV refresh régulièrement via le polling existant.
 if (!globalThis.__dbEvents) {
   globalThis.__dbEvents = new EventEmitter();
   globalThis.__dbEvents.setMaxListeners(100);
 }
 export const dbEvents = globalThis.__dbEvents;
 
-if (!globalThis.__db) {
+// ── Fallback mémoire ────────────────────────────────────────────────
+if (!globalThis.__memStore) globalThis.__memStore = new Map();
+const memStore = globalThis.__memStore;
+
+// ── Migration initiale db.json → Upstash (one-shot) ─────────────────
+// Tourne au premier appel. Idempotent grâce au flag `pstb:migrated`.
+async function ensureSeeded() {
+  if (!hasUpstash) return;
+  if (globalThis.__pstbSeeded) return;
+  globalThis.__pstbSeeded = true;
   try {
-    const Database = require("better-sqlite3");
-    
-    // Seed the /tmp database from the committed one if it doesn't exist yet
-    if (isVercel && !fs.existsSync(DB_PATH)) {
-      const sourceDb = path.join(process.cwd(), "data", "db.sqlite");
-      if (fs.existsSync(sourceDb)) {
-        console.log("Seeding SQLite from committed database...");
-        fs.copyFileSync(sourceDb, DB_PATH);
-      }
+    const flag = await redis.get("pstb:migrated");
+    if (flag) return;
+    if (!fs.existsSync(JSON_PATH)) {
+      await redis.set("pstb:migrated", "1");
+      return;
     }
-
-    const db = new Database(DB_PATH, { timeout: 5000 });
-    db.pragma("journal_mode = WAL");
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS store (
-        key TEXT PRIMARY KEY,
-        value TEXT
-      );
-    `);
-    globalThis.__db = db;
-    console.log(`Database initialized at ${DB_PATH}`);
-  } catch (err) {
-    console.error("SQLite initialization failed. Falling back to memory storage.", err);
-    // Fallback Mock DB
-    const memoryStore = new Map();
-    globalThis.__db = {
-      _memory: memoryStore,
-      prepare: (sql) => ({
-        get: (key) => {
-          const val = memoryStore.get(key);
-          return val ? { value: val } : null;
-        },
-        all: () => Array.from(memoryStore.entries()).map(([k, v]) => ({ key: k, value: v })),
-        run: (params) => {
-          if (params.key) memoryStore.set(params.key, params.value);
-        }
-      }),
-      transaction: (fn) => (args) => fn(args),
-      exec: () => {},
-      pragma: () => {}
-    };
-  }
-}
-
-const db = globalThis.__db;
-
-// Migration logic
-function migrateFromJson() {
-  try {
-    const countRow = db.prepare("SELECT COUNT(*) as c FROM store").get();
-    const count = countRow ? countRow.c : 0;
-    
-    if (count === 0 && fs.existsSync(JSON_PATH)) {
-      console.log("Migrating db.json to store...");
-      const data = JSON.parse(fs.readFileSync(JSON_PATH, "utf-8"));
-      const insert = db.prepare("INSERT INTO store (key, value) VALUES (@key, @value)");
-      
-      const entries = Object.entries(data);
-      const transaction = db.transaction((items) => {
-        for (const [key, value] of items) {
-          insert.run({ key, value: JSON.stringify(value) });
-        }
-      });
-      transaction(entries);
-      console.log("Migration complete!");
+    const data = JSON.parse(fs.readFileSync(JSON_PATH, "utf-8"));
+    const entries = Object.entries(data);
+    if (entries.length === 0) {
+      await redis.set("pstb:migrated", "1");
+      return;
     }
-  } catch (err) {
-    console.error("Migration failed:", err);
-  }
-}
-
-migrateFromJson();
-
-export function getStore(key) {
-  try {
-    const row = db.prepare("SELECT value FROM store WHERE key = ?").get(key);
-    return row ? JSON.parse(row.value) : null;
+    const fields = {};
+    for (const [k, v] of entries) fields[k] = JSON.stringify(v);
+    await redis.hset(HASH_KEY, fields);
+    await redis.set("pstb:migrated", "1");
+    console.log(`[db] Seed initial Upstash : ${entries.length} clés migrées depuis db.json`);
   } catch (e) {
+    console.error("[db] Seed Upstash échoué :", e.message);
+  }
+}
+
+// `@upstash/redis` parse parfois les valeurs JSON automatiquement (objet)
+// et parfois renvoie la string brute → on normalise.
+function decode(raw) {
+  if (raw == null) return null;
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
+    }
+  }
+  return raw;
+}
+
+export async function getStore(key) {
+  if (!hasUpstash) {
+    return memStore.has(key) ? memStore.get(key) : null;
+  }
+  await ensureSeeded();
+  try {
+    const raw = await redis.hget(HASH_KEY, key);
+    return decode(raw);
+  } catch (e) {
+    console.error("[db] getStore error:", e.message);
     return null;
   }
 }
 
-export function setStore(key, value) {
+export async function setStore(key, value) {
+  if (!hasUpstash) {
+    memStore.set(key, value);
+    dbEvents.emit("change", key);
+    return;
+  }
+  await ensureSeeded();
   try {
-    const stmt = db.prepare(`
-      INSERT INTO store (key, value)
-      VALUES (@key, @value)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `);
-    stmt.run({ key, value: JSON.stringify(value) });
+    await redis.hset(HASH_KEY, { [key]: JSON.stringify(value) });
     dbEvents.emit("change", key);
   } catch (e) {
-    console.error("setStore error:", e);
+    console.error("[db] setStore error:", e.message);
   }
 }
 
-export function getFullDb() {
+export async function getFullDb() {
+  if (!hasUpstash) {
+    return Object.fromEntries(memStore.entries());
+  }
+  await ensureSeeded();
   try {
-    const rows = db.prepare("SELECT * FROM store").all();
-    const result = {};
-    for (const row of rows) {
-      result[row.key] = JSON.parse(row.value);
-    }
-    return result;
+    const raw = (await redis.hgetall(HASH_KEY)) ?? {};
+    const out = {};
+    for (const [k, v] of Object.entries(raw)) out[k] = decode(v);
+    return out;
   } catch (e) {
+    console.error("[db] getFullDb error:", e.message);
     return {};
   }
 }
 
-export function updateFullDb(data) {
+export async function updateFullDb(data) {
+  if (!hasUpstash) {
+    for (const [k, v] of Object.entries(data)) memStore.set(k, v);
+    dbEvents.emit("change", "all");
+    return;
+  }
+  await ensureSeeded();
   try {
-    const stmt = db.prepare(`
-      INSERT INTO store (key, value)
-      VALUES (@key, @value)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value
-    `);
-    const transaction = db.transaction((entries) => {
-      for (const [key, value] of entries) {
-        stmt.run({ key, value: JSON.stringify(value) });
-      }
-    });
-    transaction(Object.entries(data));
+    const fields = {};
+    for (const [k, v] of Object.entries(data)) fields[k] = JSON.stringify(v);
+    if (Object.keys(fields).length > 0) await redis.hset(HASH_KEY, fields);
     dbEvents.emit("change", "all");
   } catch (e) {
-    console.error("updateFullDb error:", e);
+    console.error("[db] updateFullDb error:", e.message);
   }
 }
-
-export default db;
-

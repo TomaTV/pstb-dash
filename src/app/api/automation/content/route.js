@@ -92,10 +92,10 @@ export async function POST(request) {
     const { searchParams } = new URL(request.url);
     const force = searchParams.get("force") === "1";
     const today = new Date().toISOString().slice(0, 10);
-    const lastRun = getStore("auto_content_last_run");
+    const lastRun = await getStore("auto_content_last_run");
     if (!force && lastRun === today) return NextResponse.json({ ok: true, skipped: true });
 
-    const db = getFullDb();
+    const db = await getFullDb();
     const settings = db.settings || {};
     const targets = settings.autoContent?.targets || { quote: true, word: true, puzzle: true, wordle: true };
 
@@ -126,8 +126,8 @@ export async function POST(request) {
     if (generated.puzzle) updateTypeData("puzzle", generated.puzzle);
     if (generated.wordle) updateTypeData("wordle", generated.wordle);
 
-    updateFullDb({ ...db, widgets, settings });
-    setStore("auto_content_last_run", today);
+    await updateFullDb({ ...db, widgets, settings });
+    await setStore("auto_content_last_run", today);
 
     return NextResponse.json({ ok: true, updated: true });
   } catch (e) {

@@ -185,7 +185,7 @@ export async function GET() {
     }
   }
 
-  const adminList = getStore("transport_disruptions") ?? [];
+  const adminList = (await getStore("transport_disruptions")) ?? [];
   const lines = buildLines(liveMap, adminList);
   const allFlat = Object.values(lines).flat();
   const disruptedCount = allFlat.filter(l => l.status !== "ok").length;
@@ -204,7 +204,7 @@ export async function POST(req) {
     if (!Array.isArray(disruptions)) {
       return NextResponse.json({ error: "disruptions must be an array" }, { status: 400 });
     }
-    setStore("transport_disruptions", disruptions);
+    await setStore("transport_disruptions", disruptions);
     liveCache = { map: null, ts: 0 }; // force refresh on next GET
     return NextResponse.json({ ok: true });
   } catch {

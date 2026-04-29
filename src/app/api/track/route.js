@@ -12,7 +12,7 @@ export async function GET(req) {
   }
 
   try {
-    const stats = getStore("stats") || { scans: {}, events: [] };
+    const stats = (await getStore("stats")) || { scans: {}, events: [] };
     if (!stats.scans) stats.scans = {};
     if (!stats.events) stats.events = [];
 
@@ -36,7 +36,7 @@ export async function GET(req) {
       if (stats.events.length > 500) stats.events = stats.events.slice(-500);
     }
 
-    setStore("stats", stats);
+    await setStore("stats", stats);
   } catch (error) {
     console.error("[Track API] Error updating stats:", error);
   }

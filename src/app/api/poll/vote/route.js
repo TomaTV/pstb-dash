@@ -17,13 +17,13 @@ export async function POST(req) {
 
     const ip = req.headers.get("x-forwarded-for") || req.ip || "unknown";
     const ipKey = `rate_limit_poll_${ip}_${widgetId}`;
-    const lastVote = getStore(ipKey);
+    const lastVote = await getStore(ipKey);
     if (lastVote && Date.now() - lastVote < 60 * 1000) {
       // Basic rate limit: 1 vote per IP per minute
       return NextResponse.json({ error: "Rate limited" }, { status: 429 });
     }
 
-    const widgets = getStore("widgets") || [];
+    const widgets = (await getStore("widgets")) || [];
     const widgetIndex = widgets.findIndex(w => w.id === widgetId && w.type === "poll");
     if (widgetIndex === -1) return NextResponse.json({ error: "poll not found" }, { status: 404 });
     const widget = widgets[widgetIndex];
@@ -47,8 +47,8 @@ export async function POST(req) {
     target.votes = (target.votes || 0) + 1;
     
     // Save back to db
-    setStore("widgets", widgets);
-    setStore(ipKey, Date.now()); // register IP vote
+    await setStore("widgets", widgets);
+    await setStore(ipKey, Date.now()); // register IP vote
 
     const res = NextResponse.json({
       ok: true,
@@ -74,7 +74,7 @@ export async function GET(req) {
     const widgetId = searchParams.get("widgetId");
     if (!widgetId) return NextResponse.json({ error: "missing widgetId" }, { status: 400 });
 
-    const widgets = getStore("widgets") || [];
+    const widgets = (await getStore("widgets")) || [];
     const widget = widgets.find(w => w.id === widgetId && w.type === "poll");
     if (!widget) return NextResponse.json({ error: "poll not found" }, { status: 404 });
 

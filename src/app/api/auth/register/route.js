@@ -17,7 +17,7 @@ export async function POST(req) {
       return NextResponse.json({ error: "L'email doit être une adresse PST&B valide." }, { status: 400 });
     }
 
-    const users = getUsers();
+    const users = await getUsers();
 
     // If user already exists, they must use login
     if (users[emailFormatted]) {
@@ -28,7 +28,7 @@ export async function POST(req) {
     const pin = Math.floor(1000 + Math.random() * 9000).toString();
 
     // Save user
-    saveUser(emailFormatted, {
+    await saveUser(emailFormatted, {
       email: emailFormatted,
       firstName: firstName.trim(),
       lastName: lastName.trim(),
