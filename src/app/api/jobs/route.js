@@ -36,14 +36,18 @@ const SCHOOL_BLOCKLIST = [
   "dsti", "school", "école", "ecole", "campus", "formation", "ifocop", "studi",
 ];
 
-// ── Cache mémoire stable ─────────────────────────────────────────────
-// Persiste sur l'instance serverless (chaud) → tous les refreshes d'un
-// même utilisateur pendant 6h tombent sur la MÊME réponse. Sur Vercel,
-// chaque instance a son cache propre, mais le cache fetch() d'Adzuna
-// (revalidate: 21600) garantit la cohérence inter-instances.
-let cachedResponse = null; // { offers, total, fetchedAt }
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+// ── Cache cumulatif ──────────────────────────────────────────────────
+// Stratégie : on accumule les offres au fil des fetchs Adzuna. Chaque
+// nouveau refresh fusionne les nouvelles offres avec les anciennes
+// (dédupe par titre+entreprise) → la liste ne fait que grossir, jamais
+// rétrécir, jusqu'à un plafond de sécurité.
+// Throttle : pour ne pas marteler Adzuna, on refetch au plus toutes les
+// 10 min (sauf ?refresh=1). Entre 2 refetches, on resert le cumulatif.
+let cumulativeOffers = [];
+let lastFetch = 0;
+const REFRESH_THROTTLE_MS = 10 * 60 * 1000;
 const FETCH_TIMEOUT_MS = 8000;
+const MAX_OFFERS = 1000;
 
 export async function GET(req) {
   if (!APP_ID || !APP_KEY) {
@@ -59,81 +63,77 @@ export async function GET(req) {
   const count = Number(searchParams.get("count") ?? "6");
   const force = searchParams.get("refresh") === "1";
 
-  // Hit du cache si réponse fraîche et pas de query custom (les query custom
-  // restent toujours en direct car peu fréquentes).
-  if (!customQuery && !force && cachedResponse && Date.now() - cachedResponse.fetchedAt < CACHE_TTL_MS) {
-    return NextResponse.json({
-      ...cachedResponse,
-      cached: true,
-      ageSeconds: Math.round((Date.now() - cachedResponse.fetchedAt) / 1000),
-    });
+  // Query custom = direct, pas de cache (rare, à la demande)
+  if (customQuery) {
+    try {
+      const offers = await fetchOffers(customQuery, customLocation, count);
+      return NextResponse.json({ offers, total: offers.length });
+    } catch (e) {
+      return NextResponse.json({ error: e.message, offers: [] });
+    }
   }
 
-  try {
-    let allOffers = [];
+  const isCold = cumulativeOffers.length === 0;
+  const isStale = Date.now() - lastFetch > REFRESH_THROTTLE_MS;
+  const shouldFetch = force || isCold || isStale;
 
-    if (customQuery) {
-      const offers = await fetchOffers(customQuery, customLocation, count);
-      allOffers = offers;
-    } else {
-      // Parallèle plutôt que séquentiel : Adzuna gère, et c'est ~10x plus rapide.
-      // Chaque query peut échouer indépendamment sans casser le reste.
+  if (shouldFetch) {
+    try {
       const results = await Promise.all(
         SEARCHES.map((s) =>
           fetchOffers(s.query, "Paris", s.count ?? 2, s.category, s.tag)
         )
       );
-      allOffers = results.flat();
-    }
+      const fresh = results
+        .flat()
+        .filter((o) => {
+          const c = (o.company || "").toLowerCase();
+          const t = (o.title || "").toLowerCase();
+          if (SCHOOL_BLOCKLIST.some((k) => c.includes(k))) return false;
+          if (t.includes("formation") || t.includes("école") || t.includes("ecole")) return false;
+          return true;
+        });
 
-    // Filtrage écoles/formations côté serveur (avant déduplication)
-    allOffers = allOffers.filter((o) => {
-      const c = (o.company || "").toLowerCase();
-      const t = (o.title || "").toLowerCase();
-      if (SCHOOL_BLOCKLIST.some((k) => c.includes(k))) return false;
-      if (t.includes("formation") || t.includes("école") || t.includes("ecole")) return false;
-      return true;
-    });
-
-    // Déduplication par (titre + entreprise) plutôt que titre seul
-    const seen = new Set();
-    const unique = allOffers.filter((o) => {
-      const key = `${o.title.toLowerCase().slice(0, 60)}|${(o.company || "").toLowerCase()}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-
-    // Tri stable : date desc puis titre alphabétique (évite que l'ordre change
-    // entre deux fetches quand plusieurs offres ont la même date).
-    unique.sort((a, b) => {
-      const dt = parseFrDate(b.postedAt) - parseFrDate(a.postedAt);
-      if (dt !== 0) return dt;
-      return a.title.localeCompare(b.title);
-    });
-
-    // Sauvegarde dans le cache uniquement si on a une réponse exploitable.
-    // Si on a moins d'offres qu'avant, on garde l'ancien cache (anti-flicker
-    // quand une query Adzuna est down).
-    if (!customQuery && unique.length > 0) {
-      const previousCount = cachedResponse?.offers.length ?? 0;
-      if (unique.length >= previousCount * 0.5) {
-        cachedResponse = { offers: unique, total: unique.length, fetchedAt: Date.now() };
-      } else {
-        console.warn(`[Jobs API] Réponse partielle (${unique.length} vs ${previousCount} en cache), on garde l'ancien.`);
-        return NextResponse.json({ ...cachedResponse, cached: true, partial: true });
+      // ── Merge cumulatif ──
+      // On parcourt fresh d'abord (priorité aux nouvelles infos comme la
+      // date ou le salaire qui peuvent avoir été mises à jour), puis le
+      // cumulatif. La déduplication par (titre+entreprise) garantit qu'on
+      // ne double pas une offre déjà connue.
+      const seen = new Set();
+      const merged = [];
+      for (const offer of [...fresh, ...cumulativeOffers]) {
+        const key = `${(offer.title || "").toLowerCase().slice(0, 60)}|${(offer.company || "").toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(offer);
       }
-    }
 
-    return NextResponse.json({ offers: unique, total: unique.length, cached: false });
-  } catch (e) {
-    console.error("[Jobs API]", e.message);
-    // Fallback : si on a un cache, on le sert plutôt qu'une erreur
-    if (cachedResponse) {
-      return NextResponse.json({ ...cachedResponse, cached: true, stale: true, error: e.message });
+      // Tri stable : date desc + titre alphabétique en tiebreaker
+      merged.sort((a, b) => {
+        const dt = parseFrDate(b.postedAt) - parseFrDate(a.postedAt);
+        if (dt !== 0) return dt;
+        return (a.title || "").localeCompare(b.title || "");
+      });
+
+      // On garde le cumulatif uniquement si fresh a renvoyé qqch
+      // (sinon on évite d'écraser un bon cache à cause d'un Adzuna down)
+      if (fresh.length > 0 || isCold) {
+        cumulativeOffers = merged.slice(0, MAX_OFFERS);
+        lastFetch = Date.now();
+      }
+    } catch (e) {
+      console.error("[Jobs API]", e.message);
+      // Fail soft : on garde le cumulatif existant et on continue
     }
-    return NextResponse.json({ error: e.message, offers: [] });
   }
+
+  return NextResponse.json({
+    offers: cumulativeOffers,
+    total: cumulativeOffers.length,
+    cached: !shouldFetch,
+    refreshed: shouldFetch,
+    ageSeconds: lastFetch ? Math.round((Date.now() - lastFetch) / 1000) : null,
+  });
 }
 
 async function fetchOffers(query, location, count, category, tag) {
