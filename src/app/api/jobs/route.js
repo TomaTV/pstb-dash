@@ -36,6 +36,15 @@ const SCHOOL_BLOCKLIST = [
   "dsti", "school", "école", "ecole", "campus", "formation", "ifocop", "studi",
 ];
 
+// ── Cache mémoire stable ─────────────────────────────────────────────
+// Persiste sur l'instance serverless (chaud) → tous les refreshes d'un
+// même utilisateur pendant 6h tombent sur la MÊME réponse. Sur Vercel,
+// chaque instance a son cache propre, mais le cache fetch() d'Adzuna
+// (revalidate: 21600) garantit la cohérence inter-instances.
+let cachedResponse = null; // { offers, total, fetchedAt }
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const FETCH_TIMEOUT_MS = 8000;
+
 export async function GET(req) {
   if (!APP_ID || !APP_KEY) {
     return NextResponse.json({
@@ -48,16 +57,27 @@ export async function GET(req) {
   const customQuery = searchParams.get("q");
   const customLocation = searchParams.get("where") ?? "Paris";
   const count = Number(searchParams.get("count") ?? "6");
+  const force = searchParams.get("refresh") === "1";
+
+  // Hit du cache si réponse fraîche et pas de query custom (les query custom
+  // restent toujours en direct car peu fréquentes).
+  if (!customQuery && !force && cachedResponse && Date.now() - cachedResponse.fetchedAt < CACHE_TTL_MS) {
+    return NextResponse.json({
+      ...cachedResponse,
+      cached: true,
+      ageSeconds: Math.round((Date.now() - cachedResponse.fetchedAt) / 1000),
+    });
+  }
 
   try {
     let allOffers = [];
 
     if (customQuery) {
-      // Single custom query
       const offers = await fetchOffers(customQuery, customLocation, count);
       allOffers = offers;
     } else {
-      // Parallèle plutôt que séquentiel : Adzuna gère, et c'est ~10x plus rapide
+      // Parallèle plutôt que séquentiel : Adzuna gère, et c'est ~10x plus rapide.
+      // Chaque query peut échouer indépendamment sans casser le reste.
       const results = await Promise.all(
         SEARCHES.map((s) =>
           fetchOffers(s.query, "Paris", s.count ?? 2, s.category, s.tag)
@@ -84,12 +104,34 @@ export async function GET(req) {
       return true;
     });
 
-    // Tri par date (récent en premier) pour que /alternance et le widget aient un ordre stable
-    unique.sort((a, b) => parseFrDate(b.postedAt) - parseFrDate(a.postedAt));
+    // Tri stable : date desc puis titre alphabétique (évite que l'ordre change
+    // entre deux fetches quand plusieurs offres ont la même date).
+    unique.sort((a, b) => {
+      const dt = parseFrDate(b.postedAt) - parseFrDate(a.postedAt);
+      if (dt !== 0) return dt;
+      return a.title.localeCompare(b.title);
+    });
 
-    return NextResponse.json({ offers: unique, total: unique.length });
+    // Sauvegarde dans le cache uniquement si on a une réponse exploitable.
+    // Si on a moins d'offres qu'avant, on garde l'ancien cache (anti-flicker
+    // quand une query Adzuna est down).
+    if (!customQuery && unique.length > 0) {
+      const previousCount = cachedResponse?.offers.length ?? 0;
+      if (unique.length >= previousCount * 0.5) {
+        cachedResponse = { offers: unique, total: unique.length, fetchedAt: Date.now() };
+      } else {
+        console.warn(`[Jobs API] Réponse partielle (${unique.length} vs ${previousCount} en cache), on garde l'ancien.`);
+        return NextResponse.json({ ...cachedResponse, cached: true, partial: true });
+      }
+    }
+
+    return NextResponse.json({ offers: unique, total: unique.length, cached: false });
   } catch (e) {
     console.error("[Jobs API]", e.message);
+    // Fallback : si on a un cache, on le sert plutôt qu'une erreur
+    if (cachedResponse) {
+      return NextResponse.json({ ...cachedResponse, cached: true, stale: true, error: e.message });
+    }
     return NextResponse.json({ error: e.message, offers: [] });
   }
 }
@@ -104,14 +146,9 @@ async function fetchOffers(query, location, count, category, tag) {
   url.searchParams.set("sort_by", "date");
   if (category) url.searchParams.set("category", category);
 
-  // 6h cache — refreshes ~4x/day
-  const res = await fetch(url.toString(), { next: { revalidate: 21600 } });
-  if (!res.ok) {
-    console.warn(`[Adzuna] ${res.status} for "${query}"`);
-    return [];
-  }
-
-  const data = await res.json();
+  // 1 retry avec timeout — évite qu'une query lente fasse perdre toutes ses offres
+  const data = await fetchWithRetry(url.toString(), query);
+  if (!data) return [];
   return (data.results ?? []).map((job) => {
     const title = cleanTitle(job.title ?? "");
     const description = cleanHtml(job.description ?? "");
@@ -129,6 +166,29 @@ async function fetchOffers(query, location, count, category, tag) {
       level: detectLevel(title, description),
     };
   });
+}
+
+async function fetchWithRetry(urlString, label) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(urlString, {
+        signal: ctrl.signal,
+        next: { revalidate: 21600 }, // 6h — Next dedup côté plateforme
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        if (attempt === 1) console.warn(`[Adzuna] ${res.status} for "${label}"`);
+        continue;
+      }
+      return await res.json();
+    } catch (e) {
+      clearTimeout(timer);
+      if (attempt === 1) console.warn(`[Adzuna] échec "${label}": ${e.message}`);
+    }
+  }
+  return null;
 }
 
 function detectCategory(adzunaCat, title, description) {
